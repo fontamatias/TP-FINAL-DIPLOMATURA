@@ -37,8 +37,6 @@ class PresentacionLogin(QDialog):
         self.iniciar_button.clicked.connect(self._login_clicked)
 
         self.link_registro=QPushButton("Eres nuevo? REGISTRATE!")
-        self.link_registro.setFlat(True)
-        self.link_registro.setCursor(Qt.CursorShape.PointingHandCursor)
         self.link_registro.clicked.connect(self._registro_clicked)
 
         self.exit_button = QPushButton("Salir")
@@ -51,7 +49,7 @@ class PresentacionLogin(QDialog):
         layout = QVBoxLayout()
         layout.addLayout(form)
         layout.addWidget(self.iniciar_button)
-        layout.addWidget(self.link_registro, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.link_registro)
         layout.addWidget(self.exit_button)
         self.setLayout(layout)
 

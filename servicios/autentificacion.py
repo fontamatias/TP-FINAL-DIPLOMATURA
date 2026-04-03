@@ -61,9 +61,10 @@ class ServicioAutentificacion:
         if not nombre_usuario or not contraseña:
             return LoginResultado(False,message="Completar el usuario y/o contraseña")
         
-        usuario=Usuario.get_or_none(Usuario.nombreUsuario == nombre_usuario)
+        usuario=Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
         if not usuario:
             return LoginResultado(False,message="Usuario o contraseña incorecta")
         
-        if not verificacion_contraseña(contraseña, usuario, hash_contraseña):
+        if not verificacion_contraseña(contraseña, usuario.contraseña_hash):
             return LoginResultado(False,message="Usuario o contraseña incorecta")
+        return LoginResultado(True, message="Login OK")

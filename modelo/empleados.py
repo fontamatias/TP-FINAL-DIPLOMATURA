@@ -9,5 +9,5 @@ class UsuarioModelo(Model):
         database=db
 
 class Usuario(UsuarioModelo):
-    nombreUsuario=CharField(unique=True)
+    nombre_usuario=CharField(unique=True)
     contraseña_hash=CharField()

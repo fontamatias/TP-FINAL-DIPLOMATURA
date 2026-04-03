@@ -59,8 +59,8 @@ class ControladordDeApp:
 
         if reg.exec() == VistaRegistro.DialogCode.Accepted:
             #precargamos username en el login (comodidad)
-            diaologo_login.fijar_nombre_usuario(reg.get_nombre_usuario())
-            diaologo_login.focus_contraseña()
+            diaologo_login.set_nombre_usuario(reg.tomar_nombre_de_usuario())
+            diaologo_login.contraseña_focus()
 
     def manejar_registro(self,reg_vista:VistaRegistro, nombre_usuario:str, c1: str, c2:str)->None:
         """ 
@@ -75,7 +75,7 @@ class ControladordDeApp:
         
         #si hay lista de errores, la mostramos de tallada
         if res.errores:
-            QMessageBox.warning(reg_vista,res.message + "\n"+"\n".join(res.errores))
+            QMessageBox.warning(reg_vista,"Error", res.message + "\n"+"\n".join(res.errores))
         else:
             QMessageBox.warning(reg_vista,"Error",res.message)
 

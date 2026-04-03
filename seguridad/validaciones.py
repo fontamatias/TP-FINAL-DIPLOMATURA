@@ -18,6 +18,7 @@ def contraseña_validaciones_errores(pw:str) -> list [str]:
         errores.append(".)Al menos 1 numero (0-9)")
     if not re.search(r"[^A-Za-z0-9]",pw):
         errores.append(".)Al menos 1 simbolo (ejemplo:@ #$)")
+    return errores
 
 def errores_nombre_de_usuario(nombreUsuario:str) -> list[str]:
     errores:list[str]=[]
