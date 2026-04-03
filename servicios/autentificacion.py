@@ -40,7 +40,7 @@ class ServicioAutentificacion:
         
         #3) coincidencia de contraseña
         if contraseña != contraseña2:
-            return LoginResultado(False, message="La contraseña no coinciden.", errores = u_errores)
+            return LoginResultado(False, message="La contraseña no coinciden.", errores = ["Las contraseñas no coinciden"])
         
         #4) Contraseña  requisitos
         c_errores = contraseña_validaciones_errores(contraseña)
@@ -50,9 +50,9 @@ class ServicioAutentificacion:
         #5)crear usuario en db
         try:
             Usuario.create(nombre_usuario=nombre_usuario,contraseña_hash = hash_contraseña(contraseña))
-            return LoginResultado(True, message="Usuario creado exitosamente.", errores = u_errores)
+            return LoginResultado(True, message="Usuario creado exitosamente.")
         except IntegrityError:
-            return LoginResultado(False, message="Usuario ya creado.", errores = u_errores)
+            return LoginResultado(False, message="Ese nombre de usuario ya fue creado")
         
     def login(self, nombre_usuario: str, contraseña: str) ->LoginResultado:
         nombre_usuario=(nombre_usuario or "" ).strip()

@@ -29,9 +29,9 @@ class BienvenidoApp(QMainWindow):
         self.setCentralWidget(central)
         self.showFullScreen()
 
-    def presionarTeclaEvento(self,evento):
-        if evento.key() == Qt.Key.Key_Escape:
+    def KeyPressEvent(self,event):
+        if event.key() == Qt.Key.Key_Escape:
             self.close()
 
         else:
-            super().presionarTeclaEvento(evento)
+            super().KeyPressEvent(event)
