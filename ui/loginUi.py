@@ -77,6 +77,6 @@ class PresentacionLogin(QDialog):
         if callable(self.on_abrir_registro):
             self.on_abrir_registro()
 
-    def _cambiar_constraseña_clicked(self):
+    def _cambiar_contraseña_clicked(self):
         if callable(self.on_cambiar_contraseña):
             self.on_cambiar_contraseña()

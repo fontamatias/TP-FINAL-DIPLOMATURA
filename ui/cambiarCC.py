@@ -63,5 +63,5 @@ class VistaCambiarContraseña(QDialog):
             )
 
     def set_usuario(self, u:str)->None:
-        self.usuario_input.setText((u or "").trip())
+        self.usuario_input.setText((u or "").strip())
         self.actual_input.setFocus()

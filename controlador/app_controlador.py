@@ -41,7 +41,7 @@ class ControladordDeApp:
         #conectamos acciones de la vista a metods del contolador
         login.on_login = lambda u, c:self.manejar_login(login,u,c)
         login.on_abrir_registro =lambda:self.abrir_registro(login)
-        login.on_cambiar_contraseñacambiar_contraseña=lambda:self.abrir_cambiar_contraseña(login)
+        login.on_cambiar_contraseña=lambda:self.abrir_cambiar_contraseña(login)
         resultado = login.exec()
 
         if resultado == PresentacionLogin.DialogCode.Accepted:
