@@ -1,27 +1,28 @@
-"""
-main.py
-
-"""
-
 import sys
-from  PyQt6.QtWidgets import QApplication
+import traceback
+from PyQt6.QtWidgets import QApplication
 
 from base_de_datos.login import empleados_db
 from modelo.empleados import Usuario
 from controlador.app_controlador import ControladordDeApp
 
 def main():
-    empleados_db([Usuario])
+    try:
+        app = QApplication(sys.argv)
 
-    app = QApplication(sys.argv)
+        # inicializa DB/tablas
+        empleados_db([Usuario])
 
-    controlador = ControladordDeApp()
-    controlador.arranque()
+        # arranca flujo UI
+        controlador = ControladordDeApp()
+        controlador.arranque()
 
-    #NOTA
-    #- EL CONTROLADOR ABRE BIENVENIDOS Y CIERRA DIALOGOLOGIN
-    #- AQUI SOLO EJECUTMOS EL LOOP DE EVNTOS.
-    sys.exit(app.exec())
+        # loop de eventos Qt
+        sys.exit(app.exec())
 
-if __name__=="__main__":
+    except Exception:
+        traceback.print_exc()
+        input("Enter para cerrar...")
+
+if __name__ == "__main__":
     main()

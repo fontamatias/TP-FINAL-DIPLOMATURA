@@ -27,11 +27,10 @@ class BienvenidoApp(QMainWindow):
 
         layout.addWidget(label)
         self.setCentralWidget(central)
+      
         self.showFullScreen()
-
-    def KeyPressEvent(self,event):
+    def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self.close()
-
         else:
-            super().KeyPressEvent(event)
+            super().keyPressEvent(event)

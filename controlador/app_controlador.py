@@ -21,10 +21,6 @@ from ui.registroUi import VistaRegistro
 from ui.Bienvenida import BienvenidoApp
 from ui.cambiarCC import VistaCambiarContraseña
 
-
-
-
-
 class ControladordDeApp:
     def __init__(self):
         self.autentificacion= ServicioAutentificacion()

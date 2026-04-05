@@ -41,7 +41,7 @@ class PresentacionLogin(QDialog):
         self.link_registro.clicked.connect(self._registro_clicked)
         
         self.cambiar_contraseña_button=QPushButton("Cambiar contraseña")
-        self.cambiar_contraseña_button.clicked.connect(self._cambiar_contraseña_clicked)
+        self.cambiar_contraseña_button.clicked.connect(lambda:self._cambiar_contraseña_clicked)
 
         self.exit_button = QPushButton("Salir")
         self.exit_button.clicked.connect(self.reject)
