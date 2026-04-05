@@ -16,6 +16,7 @@ from peewee import IntegrityError
 from modelo.empleados import Usuario
 from seguridad.seguridad import hash_contraseña, verificacion_contraseña
 from seguridad.validaciones import errores_nombre_de_usuario, contraseña_validaciones_errores
+from servicios.decoradores import log_registro_en_terminal,log_cambio_contrasena_terminal,log_eliminacion_usuario_terminal
 
 @dataclass
 class LoginResultado:
@@ -24,6 +25,7 @@ class LoginResultado:
     errores:list[str] | None = None
 
 class ServicioAutentificacion:
+    @log_registro_en_terminal
     def registro(self, nombre_usuario:str,contraseña:str,contraseña2:str)->LoginResultado:
         nombre_usuario = (nombre_usuario or "").strip()
         contraseña=contraseña or ""
@@ -68,8 +70,8 @@ class ServicioAutentificacion:
         if not verificacion_contraseña(contraseña, usuario.contraseña_hash):
             return LoginResultado(False,message="Usuario o contraseña incorecta")
         return LoginResultado(True, message="Login OK")
-
-    def cambiar_contraseña(
+    @log_cambio_contrasena_terminal
+    def cambiar_contrasena(
         self,
         nombre_usuario: str,
         contraseña_actual: str,
@@ -103,7 +105,7 @@ class ServicioAutentificacion:
         usuario.save()
 
         return LoginResultado(True, message="Contraseña actualizada correctamente.")
-    
+    @log_eliminacion_usuario_terminal
     def eliminar_usuario(self, nombre_usuario: str, contraseña_actual: str) -> LoginResultado:
         nombre_usuario = (nombre_usuario or "").strip()
         contraseña_actual = contraseña_actual or ""

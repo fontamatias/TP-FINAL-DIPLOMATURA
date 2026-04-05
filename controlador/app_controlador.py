@@ -38,7 +38,7 @@ class ControladorDeApp:
         #conectamos acciones de la vista a metods del contolador
         login.on_login = lambda u, c:self.manejar_login(login,u,c)
         login.on_abrir_registro =lambda:self.abrir_registro(login)
-        login.on_cambiar_contraseña=lambda:self.abrir_cambiar_contraseña(login)
+        login.on_cambiar_contrasena=lambda:self.abrir_cambiar_contrasena(login)
         login.on_eliminar_usuario = lambda: self.abrir_eliminar_usuario(login)
         resultado = login.exec()
 
@@ -101,19 +101,19 @@ class ControladorDeApp:
     
         login_dialogo.accept()
     
-    def abrir_cambiar_contraseña(self,dialogo_login:PresentacionLogin)->None:
+    def abrir_cambiar_contrasena(self,dialogo_login:PresentacionLogin)->None:
         vista=VistaCambiarContraseña()
 
         vista.set_usuario(dialogo_login.nombre_usuario_input.text())
 
-        vista.activar_cambio=lambda u,a,n1,n2:self.manejar_cambio_contraseña(
+        vista.activar_cambio=lambda u,a,n1,n2:self.manejar_cambio_contrasena(
             vista,u,a,n1,n2
         )
 
         vista.exec()
 
-    def manejar_cambio_contraseña(self,vista:VistaCambiarContraseña,nombre_usuario:str,actual:str,nueva1:str,nueva2:str,)->None:
-        res = self.autentificacion.cambiar_contraseña(nombre_usuario,actual,nueva1,nueva2)
+    def manejar_cambio_contrasena(self,vista:VistaCambiarContraseña,nombre_usuario:str,actual:str,nueva1:str,nueva2:str,)->None:
+        res = self.autentificacion.cambiar_contrasena(nombre_usuario,actual,nueva1,nueva2)
         if res.ok:
             QMessageBox.information(vista,"OK",res.message)
             vista.accept()

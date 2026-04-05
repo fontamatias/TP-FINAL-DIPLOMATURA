@@ -20,7 +20,7 @@ class PresentacionLogin(QDialog):
         super().__init__()
         self.setWindowTitle("Login")
         self.setModal(True)
-        self.on_cambiar_contraseña = None
+        self.on_cambiar_contrasena = None
         self.on_eliminar_usuario = None
 
         #llamadas que el controlador inyecta
@@ -83,8 +83,8 @@ class PresentacionLogin(QDialog):
             self.on_abrir_registro()
 
     def _contrasenia_clicked(self):
-        if callable(self.on_cambiar_contraseña):
-            self.on_cambiar_contraseña()
+        if callable(self.on_cambiar_contrasena):
+            self.on_cambiar_contrasena()
 
     def _eliminar_usuario_clicked(self):
         if callable(self.on_eliminar_usuario):
