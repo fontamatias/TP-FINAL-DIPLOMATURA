@@ -40,7 +40,7 @@ class ServicioAutentificacion:
         
         #3) coincidencia de contraseña
         if contraseña != contraseña2:
-            return LoginResultado(False, message="La contraseña no coinciden.", errores = ["Las contraseñas no coinciden"])
+            return LoginResultado(False, message="La contraseña no coinciden.")
         
         #4) Contraseña  requisitos
         c_errores = contraseña_validaciones_errores(contraseña)
@@ -68,3 +68,38 @@ class ServicioAutentificacion:
         if not verificacion_contraseña(contraseña, usuario.contraseña_hash):
             return LoginResultado(False,message="Usuario o contraseña incorecta")
         return LoginResultado(True, message="Login OK")
+
+    def cambiar_contraseña(
+        self,
+        nombre_usuario: str,
+        contraseña_actual: str,
+        nueva1: str,
+        nueva2: str
+    ) -> LoginResultado:
+
+        nombre_usuario = (nombre_usuario or "").strip()
+        contraseña_actual = contraseña_actual or ""
+        nueva1 = nueva1 or ""
+        nueva2 = nueva2 or ""
+
+        if not nombre_usuario or not contraseña_actual or not nueva1 or not nueva2:
+            return LoginResultado(False, message="Completa todos los campos")
+
+        usuario = Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
+        if not usuario:
+            return LoginResultado(False, message="Usuario no encontrado")
+
+        if not verificacion_contraseña(contraseña_actual, usuario.contraseña_hash):
+            return LoginResultado(False, message="La contraseña actual es incorrecta")
+
+        if nueva1 != nueva2:
+            return LoginResultado(False, message="La nueva contraseña no coincide", errores=["No coinciden"])
+
+        c_errores = contraseña_validaciones_errores(nueva1)
+        if c_errores:
+            return LoginResultado(False, message="Nueva contraseña inválida.", errores=c_errores)
+
+        usuario.contraseña_hash = hash_contraseña(nueva1)
+        usuario.save()
+
+        return LoginResultado(True, message="Contraseña actualizada correctamente.")

@@ -19,6 +19,7 @@ from servicios.autentificacion import ServicioAutentificacion
 from ui.loginUi import PresentacionLogin
 from ui.registroUi import VistaRegistro
 from ui.Bienvenida import BienvenidoApp
+from ui.cambiarCC import VistaCambiarContraseña
 
 
 
@@ -40,7 +41,7 @@ class ControladordDeApp:
         #conectamos acciones de la vista a metods del contolador
         login.on_login = lambda u, c:self.manejar_login(login,u,c)
         login.on_abrir_registro =lambda:self.abrir_registro(login)
-
+        login.on_cambiar_contraseñacambiar_contraseña=lambda:self.abrir_cambiar_contraseña(login)
         resultado = login.exec()
 
         if resultado == PresentacionLogin.DialogCode.Accepted:
@@ -92,5 +93,28 @@ class ControladordDeApp:
         #abrimos la pantala de bienvenida
         self.ventana_bienvenido=BienvenidoApp(nombre_usuario)
         self.ventana_bienvenido.show()
-
+    
         login_dialogo.accept()
+    
+    def abrir_cambiar_contraseña(self,dialogo_login:PresentacionLogin)->None:
+        vista=VistaCambiarContraseña()
+
+        vista.set_usuario(dialogo_login.nombre_usuario_input.text())
+
+        vista.activar_cambio=lambda u,a,n1,n2:self.manejar_cambio_contraseña(
+            vista,u,a,n1,n2
+        )
+
+        vista.exec()
+
+    def manejar_cambio_contraseña(self,vista:VistaCambiarContraseña,nombre_usuario:str,actual:str,nueva1:str,nueva2:str,)->None:
+        res = self.autentificacion.cambiar_contraseña(nombre_usuario,actual,nueva1,nueva2)
+        if res.ok:
+            QMessageBox.information(vista,"OK",res.message)
+            vista.accept()
+            return
+        
+        if res.errores:
+            QMessageBox.warning(vista,"Error",res.message+"\n"+"\n".join(res.errores))
+        else:
+            QMessageBox.warning(vista," Error",res.message)

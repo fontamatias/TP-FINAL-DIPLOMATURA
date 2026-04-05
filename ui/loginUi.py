@@ -20,6 +20,7 @@ class PresentacionLogin(QDialog):
         super().__init__()
         self.setWindowTitle("Login")
         self.setModal(True)
+        self.on_cambiar_contraseña = None
 
         #llamadas que el controlador inyecta
 
@@ -38,6 +39,9 @@ class PresentacionLogin(QDialog):
 
         self.link_registro=QPushButton("Eres nuevo? REGISTRATE!")
         self.link_registro.clicked.connect(self._registro_clicked)
+        
+        self.cambiar_contraseña_button=QPushButton("Cambiar contraseña")
+        self.cambiar_contraseña_button.clicked.connect(self._cambiar_contraseña_clicked)
 
         self.exit_button = QPushButton("Salir")
         self.exit_button.clicked.connect(self.reject)
@@ -50,6 +54,7 @@ class PresentacionLogin(QDialog):
         layout.addLayout(form)
         layout.addWidget(self.iniciar_button)
         layout.addWidget(self.link_registro)
+        layout.addWidget(self.cambiar_contraseña_button)
         layout.addWidget(self.exit_button)
         self.setLayout(layout)
 
@@ -71,3 +76,7 @@ class PresentacionLogin(QDialog):
     def _registro_clicked(self):
         if callable(self.on_abrir_registro):
             self.on_abrir_registro()
+
+    def _cambiar_constraseña_clicked(self):
+        if callable(self.on_cambiar_contraseña):
+            self.on_cambiar_contraseña()
