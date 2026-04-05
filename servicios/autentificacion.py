@@ -103,3 +103,20 @@ class ServicioAutentificacion:
         usuario.save()
 
         return LoginResultado(True, message="Contraseña actualizada correctamente.")
+    
+    def eliminar_usuario(self, nombre_usuario: str, contraseña_actual: str) -> LoginResultado:
+        nombre_usuario = (nombre_usuario or "").strip()
+        contraseña_actual = contraseña_actual or ""
+
+        if not nombre_usuario or not contraseña_actual:
+            return LoginResultado(False, message="Completa todos los campos")
+
+        usuario = Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
+        if not usuario:
+            return LoginResultado(False, message="Usuario no encontrado")
+
+        if not verificacion_contraseña(contraseña_actual, usuario.contraseña_hash):
+            return LoginResultado(False, message="La contraseña actual es incorrecta")
+
+        usuario.delete_instance()
+        return LoginResultado(True, message="Usuario eliminado correctamente.")

@@ -21,6 +21,7 @@ class PresentacionLogin(QDialog):
         self.setWindowTitle("Login")
         self.setModal(True)
         self.on_cambiar_contraseña = None
+        self.on_eliminar_usuario = None
 
         #llamadas que el controlador inyecta
 
@@ -43,6 +44,9 @@ class PresentacionLogin(QDialog):
         self.cambiar_contraseña_button=QPushButton("Cambiar contraseña")
         self.cambiar_contraseña_button.clicked.connect(self._contrasenia_clicked)
 
+        self.eliminar_usuario_button = QPushButton("Eliminar usuario")
+        self.eliminar_usuario_button.clicked.connect(self._eliminar_usuario_clicked)
+
         self.exit_button = QPushButton("Salir")
         self.exit_button.clicked.connect(self.reject)
 
@@ -55,6 +59,7 @@ class PresentacionLogin(QDialog):
         layout.addWidget(self.iniciar_button)
         layout.addWidget(self.link_registro)
         layout.addWidget(self.cambiar_contraseña_button)
+        layout.addWidget(self.eliminar_usuario_button)
         layout.addWidget(self.exit_button)
         self.setLayout(layout)
 
@@ -80,3 +85,7 @@ class PresentacionLogin(QDialog):
     def _contrasenia_clicked(self):
         if callable(self.on_cambiar_contraseña):
             self.on_cambiar_contraseña()
+
+    def _eliminar_usuario_clicked(self):
+        if callable(self.on_eliminar_usuario):
+            self.on_eliminar_usuario()

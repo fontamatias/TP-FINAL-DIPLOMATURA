@@ -2,7 +2,7 @@
 modelo empleado.py
 """
 from peewee import Model, CharField
-from base_de_datos.login import db
+from base_de_datos.db import db
 
 class UsuarioModelo(Model):
     class Meta:

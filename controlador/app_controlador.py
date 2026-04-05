@@ -20,8 +20,9 @@ from ui.loginUi import PresentacionLogin
 from ui.registroUi import VistaRegistro
 from ui.Bienvenida import BienvenidoApp
 from ui.cambiarCC import VistaCambiarContraseña
+from ui.eliminarUsuario import VistaEliminarUsuario
 
-class ControladordDeApp:
+class ControladorDeApp:
     def __init__(self):
         self.autentificacion= ServicioAutentificacion()
         self.ventana_bienvenido = None # mantener referencia para no se destruya
@@ -38,6 +39,7 @@ class ControladordDeApp:
         login.on_login = lambda u, c:self.manejar_login(login,u,c)
         login.on_abrir_registro =lambda:self.abrir_registro(login)
         login.on_cambiar_contraseña=lambda:self.abrir_cambiar_contraseña(login)
+        login.on_eliminar_usuario = lambda: self.abrir_eliminar_usuario(login)
         resultado = login.exec()
 
         if resultado == PresentacionLogin.DialogCode.Accepted:
@@ -58,6 +60,13 @@ class ControladordDeApp:
             #precargamos username en el login (comodidad)
             diaologo_login.set_nombre_usuario(reg.tomar_nombre_de_usuario())
             diaologo_login.contraseña_focus()
+    
+    def abrir_eliminar_usuario(self, dialogo_login: PresentacionLogin) -> None:
+        vista = VistaEliminarUsuario()
+        vista.set_usuario(dialogo_login.nombre_usuario_input.text())
+
+        vista.activar_eliminacion = lambda u, a: self.manejar_eliminar_usuario(vista, u, a)
+        vista.exec()
 
     def manejar_registro(self,reg_vista:VistaRegistro, nombre_usuario:str, c1: str, c2:str)->None:
         """ 
@@ -114,3 +123,12 @@ class ControladordDeApp:
             QMessageBox.warning(vista,"Error",res.message+"\n"+"\n".join(res.errores))
         else:
             QMessageBox.warning(vista," Error",res.message)
+
+    def manejar_eliminar_usuario(self, vista: VistaEliminarUsuario, nombre_usuario: str, actual: str) -> None:
+        res = self.autentificacion.eliminar_usuario(nombre_usuario, actual)
+        if res.ok:
+            QMessageBox.information(vista, "OK", res.message)
+            vista.accept()
+            return
+
+        QMessageBox.warning(vista, "Error", res.message)

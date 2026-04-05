@@ -2,9 +2,9 @@ import sys
 import traceback
 from PyQt6.QtWidgets import QApplication
 
-from base_de_datos.login import empleados_db
+from base_de_datos.db import empleados_db
 from modelo.empleados import Usuario
-from controlador.app_controlador import ControladordDeApp
+from controlador.app_controlador import ControladorDeApp
 
 def main():
     try:
@@ -14,7 +14,7 @@ def main():
         empleados_db([Usuario])
 
         # arranca flujo UI
-        controlador = ControladordDeApp()
+        controlador = ControladorDeApp()
         controlador.arranque()
 
         # loop de eventos Qt

@@ -8,5 +8,5 @@ from peewee import SqliteDatabase
 db=SqliteDatabase("Empleados.db")
 
 def empleados_db(models: list[type]) -> None:
-    db.connect(reuse_if_open=True)
-    db.create_tables(models)
+    with db:
+        db.create_tables(models)
