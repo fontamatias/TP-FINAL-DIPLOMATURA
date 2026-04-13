@@ -16,7 +16,6 @@ la UI no toca peewee/bcrypt: solo llama a metodos del app_controlador.py
 from PyQt6.QtWidgets import QMessageBox
 
 from servicios.autentificacion import ServicioAutentificacion
-from modelo.empleados import Usuario
 from ui.loginUi import PresentacionLogin
 from ui.registroUi import VistaRegistro
 from ui.Bienvenida import BienvenidoApp
@@ -72,7 +71,7 @@ class ControladorDeApp:
     def manejar_registro(self,reg_vista:VistaRegistro, nombre_usuario:str, c1: str, c2:str, sector: str)->None:
         """ 
         maneja la creacion de cuenta LoginResultado 
-        Muestra mensaje en ui y cierra la vista si esta ok."""
+        Muestra mensaje en ui y cierra la vista si está ok."""
 
         res = self.autentificacion.registro(nombre_usuario,c1,c2,sector)
         if res.ok:
@@ -97,9 +96,7 @@ class ControladorDeApp:
             return
         
         #abrimos la pantala de bienvenida
-        usuario = Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
-        sector = usuario.sector if usuario else "Sin sector"
-        self.ventana_bienvenido=BienvenidoApp(nombre_usuario, sector)
+        self.ventana_bienvenido=BienvenidoApp(nombre_usuario, res.sector or "")
         self.ventana_bienvenido.show()
     
         login_dialogo.accept()

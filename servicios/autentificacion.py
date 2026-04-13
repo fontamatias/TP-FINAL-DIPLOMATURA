@@ -23,6 +23,7 @@ class LoginResultado:
     ok:bool
     message:str=""
     errores:list[str] | None = None
+    sector:str | None = None
 
 class ServicioAutentificacion:
     @log_registro_en_terminal
@@ -74,7 +75,7 @@ class ServicioAutentificacion:
         
         if not verificacion_contraseña(contraseña, usuario.contraseña_hash):
             return LoginResultado(False,message="Usuario o contraseña incorecta")
-        return LoginResultado(True, message="Login OK")
+        return LoginResultado(True, message="Login OK", sector=usuario.sector)
     @log_cambio_contrasena_terminal
     def cambiar_contrasena(
         self,

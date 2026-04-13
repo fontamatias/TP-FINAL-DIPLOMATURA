@@ -1,7 +1,7 @@
 """
 db,py
 -----
-conecxion a slite y helper para iniciarlizar las tablas.
+conexión a sqlite y helper para inicializar las tablas.
 """
 from peewee import SqliteDatabase, CharField
 from playhouse.migrate import SqliteMigrator, migrate
