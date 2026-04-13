@@ -11,3 +11,4 @@ class UsuarioModelo(Model):
 class Usuario(UsuarioModelo):
     nombre_usuario=CharField(unique=True)
     contraseña_hash=CharField()
+    sector=CharField(max_length=60, default="Línea producción (declaración)")
