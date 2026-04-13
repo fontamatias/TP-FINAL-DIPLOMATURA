@@ -71,10 +71,10 @@ class ServicioAutentificacion:
         
         usuario=Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
         if not usuario:
-            return LoginResultado(False,message="Usuario o contraseña incorecta")
+            return LoginResultado(False,message="Usuario o contraseña incorrecta")
         
         if not verificacion_contraseña(contraseña, usuario.contraseña_hash):
-            return LoginResultado(False,message="Usuario o contraseña incorecta")
+            return LoginResultado(False,message="Usuario o contraseña incorrecta")
         return LoginResultado(True, message="Login OK", sector=usuario.sector)
     @log_cambio_contrasena_terminal
     def cambiar_contrasena(

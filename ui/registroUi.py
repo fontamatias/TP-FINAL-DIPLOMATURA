@@ -41,7 +41,7 @@ class VistaRegistro(QDialog):
         hint= QLabel (
             "crea tu cuenta para luego entrar al programa \n\n"
             "Usuario:\n- 3 a 20 caracteres \n letras numeros y guion bajo\n\n "
-            "Contraseña:\n - 8+ caracteres\n- 1 mayuscula\n 1 miniscula \n 1 numero \n 1 simbolo"
+            "Contraseña:\n - 8+ caracteres\n- 1 mayuscula\n 1 minúscula \n 1 numero \n 1 simbolo"
         )
         hint.setStyleSheet("color:#444")
 

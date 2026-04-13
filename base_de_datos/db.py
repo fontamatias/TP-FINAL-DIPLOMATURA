@@ -1,5 +1,5 @@
 """
-db,py
+db.py
 -----
 conexión a sqlite y helper para inicializar las tablas.
 """
