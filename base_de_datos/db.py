@@ -13,15 +13,16 @@ def empleados_db(models: list[type]) -> None:
     with db:
         db.create_tables(models)
         for model in models:
-            if model._meta.table_name != "usuario":
+            if "sector" not in model._meta.fields:
                 continue
 
-            columnas = {col.name for col in db.get_columns("usuario")}
+            table_name = model._meta.table_name
+            columnas = {col.name for col in db.get_columns(table_name)}
             if "sector" not in columnas:
                 migrator = SqliteMigrator(db)
                 migrate(
                     migrator.add_column(
-                        "usuario",
+                        table_name,
                         "sector",
                         CharField(default=SECTOR_POR_DEFECTO),
                     )
