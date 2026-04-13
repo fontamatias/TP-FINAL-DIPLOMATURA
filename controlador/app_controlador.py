@@ -54,7 +54,7 @@ class ControladorDeApp:
         reg = VistaRegistro()
 
         #conecta accion con crear cuenta
-        reg.activar_registro=lambda u,c1,c2:self.manejar_registro(reg,u,c1,c2)
+        reg.activar_registro=lambda u,c1,c2,s:self.manejar_registro(reg,u,c1,c2,s)
 
         if reg.exec() == VistaRegistro.DialogCode.Accepted:
             #precargamos username en el login (comodidad)
@@ -68,12 +68,12 @@ class ControladorDeApp:
         vista.activar_eliminacion = lambda u, a: self.manejar_eliminar_usuario(vista, u, a)
         vista.exec()
 
-    def manejar_registro(self,reg_vista:VistaRegistro, nombre_usuario:str, c1: str, c2:str)->None:
+    def manejar_registro(self,reg_vista:VistaRegistro, nombre_usuario:str, c1: str, c2:str, sector:str)->None:
         """ 
         maneja la creacion de cuenta LoginResultado 
         Muestra mensaje en ui y cieera la cista si esta ok."""
 
-        res = self.autentificacion.registro(nombre_usuario,c1,c2)
+        res = self.autentificacion.registro(nombre_usuario,c1,c2,sector)
         if res.ok:
             QMessageBox.information(reg_vista,"OK", res.message)
             reg_vista.accept()
@@ -96,7 +96,7 @@ class ControladorDeApp:
             return
         
         #abrimos la pantala de bienvenida
-        self.ventana_bienvenido=BienvenidoApp(nombre_usuario)
+        self.ventana_bienvenido=BienvenidoApp(nombre_usuario, res.sector)
         self.ventana_bienvenido.show()
     
         login_dialogo.accept()

@@ -18,22 +18,38 @@ from seguridad.seguridad import hash_contraseña, verificacion_contraseña
 from seguridad.validaciones import errores_nombre_de_usuario, contraseña_validaciones_errores
 from servicios.decoradores import log_registro_en_terminal,log_cambio_contrasena_terminal,log_eliminacion_usuario_terminal
 
+SECTORES_PERMITIDOS = (
+    "Linea de produccion",
+    "Inspeccion final",
+    "Mecanica",
+    "Distribucion",
+)
+
 @dataclass
 class LoginResultado:
     ok:bool
     message:str=""
     errores:list[str] | None = None
+    sector:str = ""
 
 class ServicioAutentificacion:
     @log_registro_en_terminal
-    def registro(self, nombre_usuario:str,contraseña:str,contraseña2:str)->LoginResultado:
+    def registro(self, nombre_usuario:str,contraseña:str,contraseña2:str, sector:str)->LoginResultado:
         nombre_usuario = (nombre_usuario or "").strip()
         contraseña=contraseña or ""
         contraseña2=contraseña2 or ""
+        sector = (sector or "").strip()
 
         #1) campos obligatorios
-        if not nombre_usuario or not contraseña or not contraseña2:
+        if not nombre_usuario or not contraseña or not contraseña2 or not sector:
             return LoginResultado(False, message="Completa todos los campos")
+
+        if sector not in SECTORES_PERMITIDOS:
+            return LoginResultado(
+                False,
+                message="Sector inválido.",
+                errores=[f"Selecciona un sector válido: {', '.join(SECTORES_PERMITIDOS)}"]
+            )
         
         #2)politicas de usuario
         u_errores= errores_nombre_de_usuario(nombre_usuario)
@@ -51,7 +67,11 @@ class ServicioAutentificacion:
         
         #5)crear usuario en db
         try:
-            Usuario.create(nombre_usuario=nombre_usuario,contraseña_hash = hash_contraseña(contraseña))
+            Usuario.create(
+                nombre_usuario=nombre_usuario,
+                contraseña_hash=hash_contraseña(contraseña),
+                sector=sector,
+            )
             return LoginResultado(True, message="Usuario creado exitosamente.")
         except IntegrityError:
             return LoginResultado(False, message="Ese nombre de usuario ya fue creado")
@@ -69,7 +89,7 @@ class ServicioAutentificacion:
         
         if not verificacion_contraseña(contraseña, usuario.contraseña_hash):
             return LoginResultado(False,message="Usuario o contraseña incorecta")
-        return LoginResultado(True, message="Login OK")
+        return LoginResultado(True, message="Login OK", sector=usuario.sector)
     @log_cambio_contrasena_terminal
     def cambiar_contrasena(
         self,
