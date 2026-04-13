@@ -14,16 +14,10 @@ from dataclasses import dataclass
 from peewee import IntegrityError
 
 from modelo.empleados import Usuario
+from modelo.sectores import SECTORES_PERMITIDOS
 from seguridad.seguridad import hash_contraseña, verificacion_contraseña
 from seguridad.validaciones import errores_nombre_de_usuario, contraseña_validaciones_errores
 from servicios.decoradores import log_registro_en_terminal,log_cambio_contrasena_terminal,log_eliminacion_usuario_terminal
-
-SECTORES_PERMITIDOS = (
-    "Linea de produccion",
-    "Inspeccion final",
-    "Mecanica",
-    "Distribucion",
-)
 
 @dataclass
 class LoginResultado:

@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout,QFormLayout,QLineEdit,
     QPushButton,QLabel,QComboBox
 )
+from modelo.sectores import SECTORES_PERMITIDOS
 
 class VistaRegistro(QDialog):
     def __init__(self):
@@ -31,14 +32,7 @@ class VistaRegistro(QDialog):
         self.contraseña2_input.setEchoMode(QLineEdit.EchoMode.Password)
 
         self.sector_combo = QComboBox()
-        self.sector_combo.addItems(
-            [
-                "Linea de produccion",
-                "Inspeccion final",
-                "Mecanica",
-                "Distribucion",
-            ]
-        )
+        self.sector_combo.addItems(SECTORES_PERMITIDOS)
 
         hint= QLabel (
             "crea tu cuenta para luego entrar al programa \n\n"
