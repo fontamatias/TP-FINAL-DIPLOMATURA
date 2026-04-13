@@ -7,7 +7,7 @@ solo recoge inpurs y llama on_regitro del controlador
 """
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout,QFormLayout,QLineEdit,
-    QPushButton,QLabel
+    QPushButton,QLabel, QComboBox
 )
 
 class VistaRegistro(QDialog):
@@ -30,10 +30,18 @@ class VistaRegistro(QDialog):
         self.contraseña2_input.setPlaceholderText("Confirmar Contraseña")
         self.contraseña2_input.setEchoMode(QLineEdit.EchoMode.Password)
 
+        self.sector_input = QComboBox()
+        self.sector_input.addItems([
+            "Línea producción (declaración)",
+            "Inspección",
+            "Mecánica",
+            "Distribución",
+        ])
+
         hint= QLabel (
             "crea tu cuenta para luego entrar al programa \n\n"
-            "Usuario:\n- 3 a 20 caracteres \n latras numeros y guion bajo\n\n "
-            "Contraseña:\n - 8+ caracteres\n- 1 mayuscula\n 1 miniscula \n 1 numero \n 1 simbolo"
+            "Usuario:\n- 3 a 20 caracteres \n letras numeros y guion bajo\n\n "
+            "Contraseña:\n - 8+ caracteres\n- 1 mayuscula\n 1 minúscula \n 1 numero \n 1 simbolo"
         )
         hint.setStyleSheet("color:#444")
 
@@ -45,8 +53,9 @@ class VistaRegistro(QDialog):
 
         form=QFormLayout()
         form.addRow("Usuario:", self.nombre_usuario_input)
-        form.addRow("Contrasela:", self.contraseña_input)
-        form.addRow("Confirmar cc", self.contraseña2_input)
+        form.addRow("Contraseña:", self.contraseña_input)
+        form.addRow("Confirmar Contraseña", self.contraseña2_input)
+        form.addRow("Sector:", self.sector_input)
 
         layout = QVBoxLayout()
         layout.addWidget(hint)
@@ -65,5 +74,6 @@ class VistaRegistro(QDialog):
                 self.nombre_usuario_input.text(),
                 self.contraseña_input.text(),
                 self.contraseña2_input.text(),
+                self.sector_input.currentText(),
             )
     

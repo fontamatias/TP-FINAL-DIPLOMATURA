@@ -23,16 +23,18 @@ class LoginResultado:
     ok:bool
     message:str=""
     errores:list[str] | None = None
+    sector:str | None = None
 
 class ServicioAutentificacion:
     @log_registro_en_terminal
-    def registro(self, nombre_usuario:str,contraseña:str,contraseña2:str)->LoginResultado:
+    def registro(self, nombre_usuario:str,contraseña:str,contraseña2:str, sector:str)->LoginResultado:
         nombre_usuario = (nombre_usuario or "").strip()
         contraseña=contraseña or ""
         contraseña2=contraseña2 or ""
+        sector = (sector or "").strip()
 
         #1) campos obligatorios
-        if not nombre_usuario or not contraseña or not contraseña2:
+        if not nombre_usuario or not contraseña or not contraseña2 or not sector:
             return LoginResultado(False, message="Completa todos los campos")
         
         #2)politicas de usuario
@@ -51,7 +53,11 @@ class ServicioAutentificacion:
         
         #5)crear usuario en db
         try:
-            Usuario.create(nombre_usuario=nombre_usuario,contraseña_hash = hash_contraseña(contraseña))
+            Usuario.create(
+                nombre_usuario=nombre_usuario,
+                contraseña_hash = hash_contraseña(contraseña),
+                sector=sector,
+            )
             return LoginResultado(True, message="Usuario creado exitosamente.")
         except IntegrityError:
             return LoginResultado(False, message="Ese nombre de usuario ya fue creado")
@@ -65,11 +71,11 @@ class ServicioAutentificacion:
         
         usuario=Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
         if not usuario:
-            return LoginResultado(False,message="Usuario o contraseña incorecta")
+            return LoginResultado(False,message="Usuario o contraseña incorrecta")
         
         if not verificacion_contraseña(contraseña, usuario.contraseña_hash):
-            return LoginResultado(False,message="Usuario o contraseña incorecta")
-        return LoginResultado(True, message="Login OK")
+            return LoginResultado(False,message="Usuario o contraseña incorrecta")
+        return LoginResultado(True, message="Login OK", sector=usuario.sector)
     @log_cambio_contrasena_terminal
     def cambiar_contrasena(
         self,
