@@ -72,7 +72,7 @@ class ControladorDeApp:
     def manejar_registro(self,reg_vista:VistaRegistro, nombre_usuario:str, c1: str, c2:str, sector: str)->None:
         """ 
         maneja la creacion de cuenta LoginResultado 
-        Muestra mensaje en ui y cieera la cista si esta ok."""
+        Muestra mensaje en ui y cierra la vista si esta ok."""
 
         res = self.autentificacion.registro(nombre_usuario,c1,c2,sector)
         if res.ok:

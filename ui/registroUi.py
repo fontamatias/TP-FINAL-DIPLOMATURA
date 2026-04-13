@@ -53,7 +53,7 @@ class VistaRegistro(QDialog):
 
         form=QFormLayout()
         form.addRow("Usuario:", self.nombre_usuario_input)
-        form.addRow("Contrasela:", self.contraseña_input)
+        form.addRow("Contraseña:", self.contraseña_input)
         form.addRow("Confirmar cc", self.contraseña2_input)
         form.addRow("Sector:", self.sector_input)
 
