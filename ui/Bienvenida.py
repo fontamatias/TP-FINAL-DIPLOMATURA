@@ -9,7 +9,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel
 
 class BienvenidoApp(QMainWindow):
-    def __init__(self, nombre_usuario:str):
+    def __init__(self, nombre_usuario:str,sector:str):
         super().__init__()
         self.setWindowTitle("Bienvenido")
 
@@ -17,11 +17,11 @@ class BienvenidoApp(QMainWindow):
         central.setStyleSheet("background-color:white;")
         layout= QVBoxLayout(central)
 
-        label= QLabel(f"Bienvenido,{nombre_usuario}")
+        label= QLabel(f"Bienvenido,{nombre_usuario}\n al sector {sector}")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         font=QFont()
-        font.setPointSize(56)
+        font.setPointSize(40)
         font.setBold(True)
         label.setFont(font)
 

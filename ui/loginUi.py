@@ -9,10 +9,12 @@ regla:
     -recoge inputs
     - llama callbacks que el controlador define
 """
+from PyQt6.QtGui import QPixmap
+import os
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import(
     QDialog, QVBoxLayout, QFormLayout, QLineEdit,
-    QPushButton
+    QPushButton,QLabel
 )
 
 class PresentacionLogin(QDialog):
@@ -50,11 +52,28 @@ class PresentacionLogin(QDialog):
         self.exit_button = QPushButton("Salir")
         self.exit_button.clicked.connect(self.reject)
 
+        logo = QLabel()
+        logo.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+
+        base_dir = os.path.dirname(__file__)
+        img_path = os.path.join(base_dir, "producto_33.jpg")
+        pix = QPixmap(img_path)
+
+        if pix.isNull():
+            print(f"No se pudo cargar imagen: {img_path}")
+        else:
+            # Escala y reserva espacio para que se vea sí o sí
+            pix = pix.scaled(320, 180, Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation)
+            logo.setPixmap(pix)
+            logo.setFixedHeight(pix.height() + 10)   # fuerza lugar en el layout
+
         form = QFormLayout()
         form.addRow("Usuario:",self.nombre_usuario_input)
         form.addRow("Contraseña:", self.contraseña_input)
 
         layout = QVBoxLayout()
+        layout.addWidget(logo)
         layout.addLayout(form)
         layout.addWidget(self.iniciar_button)
         layout.addWidget(self.link_registro)

@@ -26,13 +26,14 @@ class LoginResultado:
 
 class ServicioAutentificacion:
     @log_registro_en_terminal
-    def registro(self, nombre_usuario:str,contraseña:str,contraseña2:str)->LoginResultado:
+    def registro(self, nombre_usuario:str,contraseña:str,contraseña2:str,sector:str)->LoginResultado:
         nombre_usuario = (nombre_usuario or "").strip()
         contraseña=contraseña or ""
         contraseña2=contraseña2 or ""
+        sector =(sector or "").strip()
 
         #1) campos obligatorios
-        if not nombre_usuario or not contraseña or not contraseña2:
+        if not nombre_usuario or not contraseña or not contraseña2 or not sector:
             return LoginResultado(False, message="Completa todos los campos")
         
         #2)politicas de usuario
@@ -51,7 +52,7 @@ class ServicioAutentificacion:
         
         #5)crear usuario en db
         try:
-            Usuario.create(nombre_usuario=nombre_usuario,contraseña_hash = hash_contraseña(contraseña))
+            Usuario.create(nombre_usuario=nombre_usuario,contraseña_hash = hash_contraseña(contraseña),sector = sector)
             return LoginResultado(True, message="Usuario creado exitosamente.")
         except IntegrityError:
             return LoginResultado(False, message="Ese nombre de usuario ya fue creado")
@@ -59,6 +60,7 @@ class ServicioAutentificacion:
     def login(self, nombre_usuario: str, contraseña: str) ->LoginResultado:
         nombre_usuario=(nombre_usuario or "" ).strip()
         contraseña=contraseña or ""
+       
 
         if not nombre_usuario or not contraseña:
             return LoginResultado(False,message="Completar el usuario y/o contraseña")

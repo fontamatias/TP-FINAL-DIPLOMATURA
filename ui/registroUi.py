@@ -7,7 +7,7 @@ solo recoge inpurs y llama on_regitro del controlador
 """
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout,QFormLayout,QLineEdit,
-    QPushButton,QLabel
+    QPushButton,QLabel,QComboBox
 )
 
 class VistaRegistro(QDialog):
@@ -17,6 +17,7 @@ class VistaRegistro(QDialog):
         self.setModal(True)
 
         #calback que el controlador inyecta
+        #usuario, cc1,cc2,sector
         self.activar_registro = None #callable(nombre de usuario y contraseña 1 y 2)
 
         self.nombre_usuario_input = QLineEdit()
@@ -30,12 +31,33 @@ class VistaRegistro(QDialog):
         self.contraseña2_input.setPlaceholderText("Confirmar Contraseña")
         self.contraseña2_input.setEchoMode(QLineEdit.EchoMode.Password)
 
-        hint= QLabel (
-            "crea tu cuenta para luego entrar al programa \n\n"
-            "Usuario:\n- 3 a 20 caracteres \n latras numeros y guion bajo\n\n "
-            "Contraseña:\n - 8+ caracteres\n- 1 mayuscula\n 1 miniscula \n 1 numero \n 1 simbolo"
+        self.sector_input=QComboBox()
+        self.sector_input.addItems([
+            "Linea de produccion",
+            "Mecanica",
+            "Inspeccion final",
+            "Distribucion",
+        ])
+        
+        ayuda_usuario = QLabel(
+            "Requisitos de usuario:\n"
+            "- 3 a 20 caracteres\n"
+            "- letras, numeros, punto y guion bajo\n"
         )
-        hint.setStyleSheet("color:#444")
+        ayuda_usuario.setStyleSheet("color:#444; font-size:11px;")
+        ayuda_usuario.setWordWrap(True)
+
+        ayuda_contraseña= QLabel(
+            "Requisitos de contraseña:\n"
+            "-8+Caracteres\n"
+            "-1 mayuscula 1, miniscula, 1 numero y 1 simbolo"
+
+        )
+            
+        ayuda_contraseña.setStyleSheet("color:#444; font-size:11px;")
+        ayuda_contraseña.setWordWrap(True)
+
+     
 
         self.crear_button=QPushButton("Crear Usuario")
         self.crear_button.clicked.connect(self._crear_clicked)
@@ -45,11 +67,13 @@ class VistaRegistro(QDialog):
 
         form=QFormLayout()
         form.addRow("Usuario:", self.nombre_usuario_input)
-        form.addRow("Contrasela:", self.contraseña_input)
-        form.addRow("Confirmar cc", self.contraseña2_input)
+        form.addRow("",ayuda_usuario)
+        form.addRow("Contraseña:", self.contraseña_input)
+        form.addRow("",ayuda_contraseña)
+        form.addRow("Confirmar contraseña", self.contraseña2_input)
+        form.addRow("Sector:",self.sector_input)
 
         layout = QVBoxLayout()
-        layout.addWidget(hint)
         layout.addLayout(form)
         layout.addWidget(self.crear_button)
         layout.addWidget(self.cancelar_button)
@@ -58,12 +82,15 @@ class VistaRegistro(QDialog):
     def tomar_nombre_de_usuario(self) -> str:
         return self.nombre_usuario_input.text().strip()
     
-
+    def tomar_sector(self)->str:
+        return self.sector_input.currentText().strip()
+    
     def _crear_clicked(self):
         if callable(self.activar_registro):
             self.activar_registro(
                 self.nombre_usuario_input.text(),
                 self.contraseña_input.text(),
                 self.contraseña2_input.text(),
+                self.tomar_sector(),
             )
     
