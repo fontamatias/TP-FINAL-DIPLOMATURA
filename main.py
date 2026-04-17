@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QApplication
 
 from base_de_datos.db import empleados_db
 from modelo.empleados import Usuario
+from modelo.motos import Moto
 from controlador.app_controlador import ControladorDeApp
 
 def main():
@@ -11,7 +12,7 @@ def main():
         app = QApplication(sys.argv)
 
         # inicializa DB/tablas
-        empleados_db([Usuario])
+        empleados_db([Usuario, Moto])
 
         # arranca flujo UI
         controlador = ControladorDeApp()

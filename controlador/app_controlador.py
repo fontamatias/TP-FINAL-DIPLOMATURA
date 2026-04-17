@@ -22,6 +22,7 @@ from ui.Bienvenida import BienvenidoApp
 from ui.cambiarCC import VistaCambiarContraseña
 from ui.eliminarUsuario import VistaEliminarUsuario
 from modelo.empleados import Usuario
+from ui.produccionUi import VentanaProduccion
 
 class ControladorDeApp:
     def __init__(self):
@@ -58,7 +59,7 @@ class ControladorDeApp:
         reg.activar_registro=lambda u,c1,c2,s:self.manejar_registro(reg,u,c1,c2,s)
 
         if reg.exec() == VistaRegistro.DialogCode.Accepted:
-            #precargamos username en el login (comodidad)
+            #precargamos username en el login 
             diaologo_login.set_nombre_usuario(reg.tomar_nombre_de_usuario())
             diaologo_login.contraseña_focus()
     
@@ -80,30 +81,31 @@ class ControladorDeApp:
             reg_vista.accept()
             return
         
-        #si hay lista de errores, la mostramos de tallada
         if res.errores:
             QMessageBox.warning(reg_vista,"Error", res.message + "\n"+"\n".join(res.errores))
         else:
             QMessageBox.warning(reg_vista,"Error",res.message)
 
     def manejar_login(self,login_dialogo:PresentacionLogin, nombre_usuario: str, contraseña:str)->None:
-        """
-        maneja el login usanfo servicio de autentificacion
-        si OK: abre bienvenido y cierra el login"""
-
         res=self.autentificacion.login(nombre_usuario, contraseña)
         if not res.ok:
             QMessageBox.critical(login_dialogo,"Login invalido",res.message)
             return
+
         usuario = Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
         sector = usuario.sector if usuario else ""
 
-        #abrimos la pantala de bienvenida
+        # Si es línea de producción -> ventana de producción
+        if sector == "Linea de produccion":
+            self.ventana_bienvenido = VentanaProduccion(nombre_usuario)
+            self.ventana_bienvenido.show()
+            login_dialogo.accept()
+            return
+
         self.ventana_bienvenido=BienvenidoApp(nombre_usuario,sector)
         self.ventana_bienvenido.show()
-    
         login_dialogo.accept()
-    
+        
     def abrir_cambiar_contrasena(self,dialogo_login:PresentacionLogin)->None:
         vista=VistaCambiarContraseña()
 

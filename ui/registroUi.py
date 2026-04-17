@@ -7,18 +7,16 @@ solo recoge inpurs y llama on_regitro del controlador
 """
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout,QFormLayout,QLineEdit,
-    QPushButton,QLabel,QComboBox
-)
+    QPushButton,QLabel,QComboBox)
+from patrones.observadores import Sujeto, Evento
 
-class VistaRegistro(QDialog):
+class VistaRegistro(QDialog, Sujeto):
     def __init__(self):
-        super().__init__()
+        QDialog.__self__(self)
+        Sujeto.__init__(self)
+
         self.setWindowTitle("Registro")
         self.setModal(True)
-
-        #calback que el controlador inyecta
-        #usuario, cc1,cc2,sector
-        self.activar_registro = None #callable(nombre de usuario y contraseña 1 y 2)
 
         self.nombre_usuario_input = QLineEdit()
         self.nombre_usuario_input.setPlaceholderText("Usuario")
@@ -51,13 +49,10 @@ class VistaRegistro(QDialog):
             "Requisitos de contraseña:\n"
             "-8+Caracteres\n"
             "-1 mayuscula 1, miniscula, 1 numero y 1 simbolo"
-
         )
             
         ayuda_contraseña.setStyleSheet("color:#444; font-size:11px;")
         ayuda_contraseña.setWordWrap(True)
-
-     
 
         self.crear_button=QPushButton("Crear Usuario")
         self.crear_button.clicked.connect(self._crear_clicked)
@@ -86,11 +81,13 @@ class VistaRegistro(QDialog):
         return self.sector_input.currentText().strip()
     
     def _crear_clicked(self):
-        if callable(self.activar_registro):
-            self.activar_registro(
-                self.nombre_usuario_input.text(),
-                self.contraseña_input.text(),
-                self.contraseña2_input.text(),
-                self.tomar_sector(),
-            )
+        self.notificar(Evento(
+            nombre="registro_submit",
+            data={
+                "usuario":self.nombre_usuario_input.text(),
+                "c1":self.contraseña_input.text(),
+                "c2":self.contraseña2_input.text(),
+                "sector":self.tomar_sector(),
+            }
+        ))
     

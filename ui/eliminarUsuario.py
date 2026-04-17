@@ -3,13 +3,15 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel
 )
 
-class VistaEliminarUsuario(QDialog):
+from patrones.observadores import Sujeto, Evento
+
+class VistaEliminarUsuario(QDialog, Sujeto):
     def __init__(self):
-        super().__init__()
+        QDialog.__init__(self)
+        Sujeto.__init__(self)
+
         self.setWindowTitle("Eliminar usuario")
         self.setModal(True)
-
-        self.activar_eliminacion = None
 
         self.usuario_input = QLineEdit()
         self.usuario_input.setPlaceholderText("Usuario")
@@ -41,13 +43,15 @@ class VistaEliminarUsuario(QDialog):
         layout.addWidget(self.cancelar_button)
         self.setLayout(layout)
 
-    def _eliminar_clicked(self):
-        if callable(self.activar_eliminacion):
-            self.activar_eliminacion(
-                self.usuario_input.text(),
-                self.actual_input.text()
-            )
 
+    def _eliminar_clicked(self) -> None:
+        self.notificar(Evento(
+            nombre="eliminar_usuario_submit",
+            data={
+                "usuario": self.usuario_input.text(),
+                "actual": self.actual_input.text(),
+            }
+        ))
     def set_usuario(self, u: str) -> None:
         self.usuario_input.setText((u or "").strip())
         self.actual_input.setFocus()

@@ -14,21 +14,16 @@ import os
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import(
     QDialog, QVBoxLayout, QFormLayout, QLineEdit,
-    QPushButton,QLabel
-)
+    QPushButton,QLabel)
+from patrones.observadores import Sujeto, Evento
 
-class PresentacionLogin(QDialog):
+class PresentacionLogin(QDialog, Sujeto):
     def __init__(self):
-        super().__init__()
+        QDialog.__init__(self)
+        Sujeto.__init__(self)
+
         self.setWindowTitle("Login")
         self.setModal(True)
-        self.on_cambiar_contrasena = None
-        self.on_eliminar_usuario = None
-
-        #llamadas que el controlador inyecta
-
-        self.on_login = None # llamada (nombre_usuario, contraseña)
-        self.on_abrir_registro = None#llamada ()
 
         self.nombre_usuario_input = QLineEdit()
         self.nombre_usuario_input.setPlaceholderText("Usuario")
@@ -40,7 +35,7 @@ class PresentacionLogin(QDialog):
         self.iniciar_button = QPushButton("Iniciar sesion")
         self.iniciar_button.clicked.connect(self._login_clicked)
 
-        self.link_registro=QPushButton("Eres nuevo? REGISTRATE!")
+        self.link_registro=QPushButton("Registrarce")
         self.link_registro.clicked.connect(self._registro_clicked)
         
         self.cambiar_contraseña_button=QPushButton("Cambiar contraseña")
@@ -90,21 +85,21 @@ class PresentacionLogin(QDialog):
     def contraseña_focus(self) -> None:
         self.contraseña_input.setFocus()
 
-
     #eventos internos
 
     def _login_clicked(self):
-        if callable(self.on_login):
-            self.on_login(self.nombre_usuario_input.text(), self.contraseña_input.text ())
-
+        self.notificar(Evento(
+            nombre="Login_requested",
+            data={
+                "usuario": self.nombre_usuario_input.text(),
+                "contraseña":self.contraseña_input.text()
+            }
+        ))
     def _registro_clicked(self):
-        if callable(self.on_abrir_registro):
-            self.on_abrir_registro()
+        self.notificar(Evento(nombre="registro_requested"))
 
     def _contrasenia_clicked(self):
-        if callable(self.on_cambiar_contrasena):
-            self.on_cambiar_contrasena()
+        self.notificar(Evento(nombre="cambiar_contrasena_requeted"))
 
     def _eliminar_usuario_clicked(self):
-        if callable(self.on_eliminar_usuario):
-            self.on_eliminar_usuario()
+        self.notificar(Evento(nombre="Eliminar_usuario_requested"))
