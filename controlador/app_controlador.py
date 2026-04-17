@@ -1,19 +1,15 @@
 """
-controlador/app_contolador.py
+controlador/app_controlador.py
 -----------------------------
-controlador principal
-
-responsabilidad:
--mostrar login
--si el usuario pide registro, abrir NuevoRegistro
--usar IngresoSistema para registrar/logear
--mostrar mensajes en UI (QMessageBox)
--si el login esta ok, abrir MenuEmpleados
-
-la UI no toca peewee/bcrypt: solo llama a metodos del app_controlador.py
-
+controlador principal usando patron Observador:
+- las vistas emiten eventos
+- el controlador escucha y actua
 """
+from __future__ import annotations
+
 from PyQt6.QtWidgets import QMessageBox
+
+from patrones.observadores import Observador, Evento
 
 from servicios.autentificacion import ServicioAutentificacion
 from ui.loginUi import PresentacionLogin
@@ -21,116 +17,176 @@ from ui.registroUi import VistaRegistro
 from ui.Bienvenida import BienvenidoApp
 from ui.cambiarCC import VistaCambiarContraseña
 from ui.eliminarUsuario import VistaEliminarUsuario
-from modelo.empleados import Usuario
 from ui.produccionUi import VentanaProduccion
 
-class ControladorDeApp:
+from modelo.empleados import Usuario
+
+
+class ControladorDeApp(Observador):
     def __init__(self):
-        self.autentificacion= ServicioAutentificacion()
-        self.ventana_bienvenido = None # mantener referencia para no se destruya
+        self.autentificacion = ServicioAutentificacion()
+
+        self.login: PresentacionLogin | None = None
+        self.ventana_bienvenido = None
+        self._registro: VistaRegistro | None = None
+        self._cambiar: VistaCambiarContraseña | None = None
+        self._eliminar: VistaEliminarUsuario | None = None
+        self._produccion: VentanaProduccion | None = None
 
     def arranque(self) -> int:
-        """
-        ejecuta el flujo general
-        retorna:
-        0 si el usario cancela/cierra el login
-        1 si entra exitosamente
-        """
-        login = PresentacionLogin()
-        #conectamos acciones de la vista a metods del contolador
-        login.on_login = lambda u, c:self.manejar_login(login,u,c)
-        login.on_abrir_registro =lambda:self.abrir_registro(login)
-        login.on_cambiar_contrasena=lambda:self.abrir_cambiar_contrasena(login)
-        login.on_eliminar_usuario = lambda: self.abrir_eliminar_usuario(login)
-        resultado = login.exec()
+        self.login = PresentacionLogin()
+        self.login.conectar(self)
 
+        resultado = self.login.exec()
         if resultado == PresentacionLogin.DialogCode.Accepted:
-            #si el dialogo acepto, el controlador ya abrio Ventana de Bienvenida
             return 1
         return 0
-    
-    def abrir_registro(self,diaologo_login:PresentacionLogin)->None:
-        """
-        Abre el registro. si se registra ok, precarga username en login"""
 
+    # OBSERVADOR
+    def update(self, subject, evento: Evento) -> None:
+        nombre = evento.nombre
+        data = evento.data or {}
+
+        # eventos del login
+        if nombre == "login_submit":
+            self._manejar_login(subject, data)
+            return
+
+        if nombre == "registro_requested":
+            self._abrir_registro(subject)
+            return
+
+        if nombre == "cambiar_contrasena_requested":
+            self._abrir_cambiar_contrasena(subject)
+            return
+
+        if nombre == "eliminar_usuario_requested":
+            self._abrir_eliminar_usuario(subject)
+            return
+
+        # eventos del registro
+        if nombre == "registro_submit":
+            self._manejar_registro(subject, data)
+            return
+
+        # eventos cambiar contraseña
+        if nombre == "cambiar_contrasena_submit":
+            self._manejar_cambio_contrasena(subject, data)
+            return
+
+        # eventos eliminar usuario
+        if nombre == "eliminar_usuario_submit":
+            self._manejar_eliminar_usuario(subject, data)
+            return
+
+        # eventos produccion
+        if nombre == "produccion_cierre_dia":
+            # opcional: log, volver al login, etc.
+            # hoy solo lo dejamos pasar (la ventana se cierra sola)
+            return
+
+        print(f"Evento no manejado: {evento}")
+
+    # ---- acciones ----
+    def _abrir_registro(self, dialogo_login: PresentacionLogin) -> None:
         reg = VistaRegistro()
-
-        #conecta accion con crear cuenta
-        reg.activar_registro=lambda u,c1,c2,s:self.manejar_registro(reg,u,c1,c2,s)
+        reg.conectar(self)
+        self._registro = reg
 
         if reg.exec() == VistaRegistro.DialogCode.Accepted:
-            #precargamos username en el login 
-            diaologo_login.set_nombre_usuario(reg.tomar_nombre_de_usuario())
-            diaologo_login.contraseña_focus()
-    
-    def abrir_eliminar_usuario(self, dialogo_login: PresentacionLogin) -> None:
-        vista = VistaEliminarUsuario()
-        vista.set_usuario(dialogo_login.nombre_usuario_input.text())
+            dialogo_login.set_nombre_usuario(reg.tomar_nombre_de_usuario())
+            dialogo_login.contraseña_focus()
 
-        vista.activar_eliminacion = lambda u, a: self.manejar_eliminar_usuario(vista, u, a)
-        vista.exec()
+        reg.desconectar(self)
+        self._registro = None
 
-    def manejar_registro(self,reg_vista:VistaRegistro, nombre_usuario:str, c1: str, c2:str,sector:str)->None:
-        """ 
-        maneja la creacion de cuenta LoginResultado 
-        Muestra mensaje en ui y cieera la cista si esta ok."""
+    def _manejar_registro(self, reg_vista: VistaRegistro, data: dict) -> None:
+        u = data.get("usuario", "")
+        c1 = data.get("c1", "")
+        c2 = data.get("c2", "")
+        sector = data.get("sector", "")
 
-        res = self.autentificacion.registro(nombre_usuario,c1,c2,sector)
+        res = self.autentificacion.registro(u, c1, c2, sector)
         if res.ok:
-            QMessageBox.information(reg_vista,"OK", res.message)
+            QMessageBox.information(reg_vista, "OK", res.message)
             reg_vista.accept()
             return
-        
-        if res.errores:
-            QMessageBox.warning(reg_vista,"Error", res.message + "\n"+"\n".join(res.errores))
-        else:
-            QMessageBox.warning(reg_vista,"Error",res.message)
 
-    def manejar_login(self,login_dialogo:PresentacionLogin, nombre_usuario: str, contraseña:str)->None:
-        res=self.autentificacion.login(nombre_usuario, contraseña)
+        if res.errores:
+            QMessageBox.warning(reg_vista, "Error", res.message + "\n" + "\n".join(res.errores))
+        else:
+            QMessageBox.warning(reg_vista, "Error", res.message)
+
+    def _manejar_login(self, login_dialogo: PresentacionLogin, data: dict) -> None:
+        nombre_usuario = data.get("usuario", "")
+        contraseña = data.get("contraseña", "")
+
+        res = self.autentificacion.login(nombre_usuario, contraseña)
         if not res.ok:
-            QMessageBox.critical(login_dialogo,"Login invalido",res.message)
+            QMessageBox.critical(login_dialogo, "Login invalido", res.message)
             return
 
-        usuario = Usuario.get_or_none(Usuario.nombre_usuario == nombre_usuario)
+        usuario = Usuario.get_or_none(Usuario.nombre_usuario == (nombre_usuario or "").strip())
         sector = usuario.sector if usuario else ""
 
-        # Si es línea de producción -> ventana de producción
         if sector == "Linea de produccion":
-            self.ventana_bienvenido = VentanaProduccion(nombre_usuario)
-            self.ventana_bienvenido.show()
+            prod = VentanaProduccion(nombre_usuario)
+            prod.conectar(self)
+            self._produccion = prod
+
+            prod.show()
             login_dialogo.accept()
             return
 
-        self.ventana_bienvenido=BienvenidoApp(nombre_usuario,sector)
-        self.ventana_bienvenido.show()
+        bien = BienvenidoApp(nombre_usuario, sector)
+        self.ventana_bienvenido = bien
+        bien.show()
         login_dialogo.accept()
-        
-    def abrir_cambiar_contrasena(self,dialogo_login:PresentacionLogin)->None:
-        vista=VistaCambiarContraseña()
+
+    def _abrir_cambiar_contrasena(self, dialogo_login: PresentacionLogin) -> None:
+        vista = VistaCambiarContraseña()
+        vista.conectar(self)
+        self._cambiar = vista
 
         vista.set_usuario(dialogo_login.nombre_usuario_input.text())
-
-        vista.activar_cambio=lambda u,a,n1,n2:self.manejar_cambio_contrasena(
-            vista,u,a,n1,n2
-        )
-
         vista.exec()
 
-    def manejar_cambio_contrasena(self,vista:VistaCambiarContraseña,nombre_usuario:str,actual:str,nueva1:str,nueva2:str,)->None:
-        res = self.autentificacion.cambiar_contrasena(nombre_usuario,actual,nueva1,nueva2)
+        vista.desconectar(self)
+        self._cambiar = None
+
+    def _manejar_cambio_contrasena(self, vista: VistaCambiarContraseña, data: dict) -> None:
+        u = data.get("usuario", "")
+        actual = data.get("actual", "")
+        n1 = data.get("nueva1", "")
+        n2 = data.get("nueva2", "")
+
+        res = self.autentificacion.cambiar_contrasena(u, actual, n1, n2)
         if res.ok:
-            QMessageBox.information(vista,"OK",res.message)
+            QMessageBox.information(vista, "OK", res.message)
             vista.accept()
             return
-        
-        if res.errores:
-            QMessageBox.warning(vista,"Error",res.message+"\n"+"\n".join(res.errores))
-        else:
-            QMessageBox.warning(vista," Error",res.message)
 
-    def manejar_eliminar_usuario(self, vista: VistaEliminarUsuario, nombre_usuario: str, actual: str) -> None:
-        res = self.autentificacion.eliminar_usuario(nombre_usuario, actual)
+        if res.errores:
+            QMessageBox.warning(vista, "Error", res.message + "\n" + "\n".join(res.errores))
+        else:
+            QMessageBox.warning(vista, "Error", res.message)
+
+    def _abrir_eliminar_usuario(self, dialogo_login: PresentacionLogin) -> None:
+        vista = VistaEliminarUsuario()
+        vista.conectar(self)
+        self._eliminar = vista
+
+        vista.set_usuario(dialogo_login.nombre_usuario_input.text())
+        vista.exec()
+
+        vista.desconectar(self)
+        self._eliminar = None
+
+    def _manejar_eliminar_usuario(self, vista: VistaEliminarUsuario, data: dict) -> None:
+        u = data.get("usuario", "")
+        actual = data.get("actual", "")
+
+        res = self.autentificacion.eliminar_usuario(u, actual)
         if res.ok:
             QMessageBox.information(vista, "OK", res.message)
             vista.accept()

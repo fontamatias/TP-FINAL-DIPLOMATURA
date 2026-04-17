@@ -9,25 +9,19 @@ from PyQt6.QtCore import Qt, QTimer
 from datetime import date
 
 from servicios.produccion import ServicioProduccion
+from patrones.observadores import Sujeto, Evento
 
 
-class VentanaProduccion(QMainWindow):
-    """
-    Ventana para sector: Linea de produccion
-    - Declara motos (chasis, motor, modelo, color)
-    - Muestra tabla con todas las motos
-    - Contador diario (solo hoy)
-    - Cerrar día: muestra cantidad diaria y cierra app
-    """
+class VentanaProduccion(QMainWindow, Sujeto):
     def __init__(self, nombre_usuario: str):
-        super().__init__()
+        QMainWindow.__init__(self)
+        Sujeto.__init__(self)
+
         self.setWindowTitle(f"Producción - Usuario: {nombre_usuario}")
 
         self.servicio = ServicioProduccion()
-
         self._dia_actual = date.today()
 
-        # UI CONTROL
         self.chasis_input = QLineEdit()
         self.chasis_input.setPlaceholderText("Número de chasis")
 
@@ -63,7 +57,6 @@ class VentanaProduccion(QMainWindow):
         self.contador_label.setStyleSheet("font-size: 14px; font-weight: bold;")
         self._actualizar_contador()
 
-        # Tabla (tipo treeview simple)
         self.tabla = QTableWidget()
         self.tabla.setColumnCount(5)
         self.tabla.setHorizontalHeaderLabels(["Chasis", "Motor", "Modelo", "Color", "Fecha/Hora"])
@@ -71,7 +64,6 @@ class VentanaProduccion(QMainWindow):
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabla.itemSelectionChanged.connect(self._fila_seleccionada)
 
-        #LAYOUT
         central = QWidget()
         root = QVBoxLayout(central)
 
@@ -103,16 +95,13 @@ class VentanaProduccion(QMainWindow):
 
         self.setCentralWidget(central)
 
-        # cargar inicial
         self._refrescar()
 
-        # timer para detectar cambio de día 
         self.timer = QTimer(self)
-        self.timer.setInterval(30_000)  # cada 30s
+        self.timer.setInterval(30_000)
         self.timer.timeout.connect(self._verificar_cambio_dia)
         self.timer.start()
 
-    # UI METODOS
     def _cargar_colores(self, modelo: str):
         self.color_combo.clear()
         self.color_combo.addItems(self.servicio.colores_para_modelo(modelo))
@@ -148,18 +137,13 @@ class VentanaProduccion(QMainWindow):
         items = self.tabla.selectedItems()
         if not items:
             return None
-        # columna 0 = chasis
         return items[0].text()
 
     def _fila_seleccionada(self):
-        """
-        Cuando seleccionás una fila, precarga los campos (para modificar).
-        """
         chasis = self._moto_seleccionada_chasis()
         if not chasis:
             return
 
-        # buscar esa moto en DB 
         motos = self.servicio.buscar(chasis)
         if not motos:
             return
@@ -175,8 +159,6 @@ class VentanaProduccion(QMainWindow):
         idx_color = self.color_combo.findText(str(m.color))
         if idx_color >= 0:
             self.color_combo.setCurrentIndex(idx_color)
-
-    #ACCIONES
 
     def _refrescar(self):
         motos = self.servicio.listar_todas()
@@ -199,7 +181,6 @@ class VentanaProduccion(QMainWindow):
         if res.ok:
             QMessageBox.information(self, "OK", res.message)
             self._refrescar()
-            # limpiar inputs
             self.chasis_input.clear()
             self.motor_input.clear()
             self.chasis_input.setFocus()
@@ -211,7 +192,6 @@ class VentanaProduccion(QMainWindow):
             QMessageBox.warning(self, "Error", res.message)
 
     def _modificar_clicked(self):
-        # chasis lo tomamos del input
         res = self.servicio.modificar_moto_por_chasis(
             self.chasis_input.text(),
             self.motor_input.text(),
@@ -235,5 +215,11 @@ class VentanaProduccion(QMainWindow):
             "Cierre de día",
             f"Producción del día ({self._dia_actual.isoformat()}): {cantidad} motos.\n\nEl programa se cerrará."
         )
+
+        # avisar al controlador (por si quiere loguear, volver al login, etc.)
+        self.notificar(Evento(
+            nombre="produccion_cierre_dia",
+            data={"dia": self._dia_actual.isoformat(), "cantidad": cantidad}
+        ))
+
         self.close()
-        # en PyQt cerrar la ultima ventana cierra app

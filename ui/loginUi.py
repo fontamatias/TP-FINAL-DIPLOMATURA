@@ -6,16 +6,18 @@ vista del login
 regla:
 - la vista no valida contra db
 - la vista solo:
-    -recoge inputs
-    - llama callbacks que el controlador define
+    - recoge inputs
+    - emite eventos
 """
 from PyQt6.QtGui import QPixmap
 import os
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import(
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit,
-    QPushButton,QLabel)
+    QPushButton, QLabel
+)
 from patrones.observadores import Sujeto, Evento
+
 
 class PresentacionLogin(QDialog, Sujeto):
     def __init__(self):
@@ -35,10 +37,10 @@ class PresentacionLogin(QDialog, Sujeto):
         self.iniciar_button = QPushButton("Iniciar sesion")
         self.iniciar_button.clicked.connect(self._login_clicked)
 
-        self.link_registro=QPushButton("Registrarce")
+        self.link_registro = QPushButton("Registrarse")
         self.link_registro.clicked.connect(self._registro_clicked)
-        
-        self.cambiar_contraseña_button=QPushButton("Cambiar contraseña")
+
+        self.cambiar_contraseña_button = QPushButton("Cambiar contraseña")
         self.cambiar_contraseña_button.clicked.connect(self._contrasenia_clicked)
 
         self.eliminar_usuario_button = QPushButton("Eliminar usuario")
@@ -57,14 +59,16 @@ class PresentacionLogin(QDialog, Sujeto):
         if pix.isNull():
             print(f"No se pudo cargar imagen: {img_path}")
         else:
-            # Escala y reserva espacio para que se vea sí o sí
-            pix = pix.scaled(320, 180, Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation)
+            pix = pix.scaled(
+                320, 180,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
             logo.setPixmap(pix)
-            logo.setFixedHeight(pix.height() + 10)   # fuerza lugar en el layout
+            logo.setFixedHeight(pix.height() + 10)
 
         form = QFormLayout()
-        form.addRow("Usuario:",self.nombre_usuario_input)
+        form.addRow("Usuario:", self.nombre_usuario_input)
         form.addRow("Contraseña:", self.contraseña_input)
 
         layout = QVBoxLayout()
@@ -77,29 +81,28 @@ class PresentacionLogin(QDialog, Sujeto):
         layout.addWidget(self.exit_button)
         self.setLayout(layout)
 
-
-    #metodos helpers para el controlador puede manipular la vist
-    def set_nombre_usuario(self,nombre_usuario:str) ->None:
+    # helpers para el controlador
+    def set_nombre_usuario(self, nombre_usuario: str) -> None:
         self.nombre_usuario_input.setText(nombre_usuario or "")
 
     def contraseña_focus(self) -> None:
         self.contraseña_input.setFocus()
 
-    #eventos internos
-
+    # eventos internos -> notificar
     def _login_clicked(self):
         self.notificar(Evento(
-            nombre="Login_requested",
+            nombre="login_submit",
             data={
                 "usuario": self.nombre_usuario_input.text(),
-                "contraseña":self.contraseña_input.text()
+                "contraseña": self.contraseña_input.text(),
             }
         ))
+
     def _registro_clicked(self):
         self.notificar(Evento(nombre="registro_requested"))
 
     def _contrasenia_clicked(self):
-        self.notificar(Evento(nombre="cambiar_contrasena_requeted"))
+        self.notificar(Evento(nombre="cambiar_contrasena_requested"))
 
     def _eliminar_usuario_clicked(self):
-        self.notificar(Evento(nombre="Eliminar_usuario_requested"))
+        self.notificar(Evento(nombre="eliminar_usuario_requested"))
