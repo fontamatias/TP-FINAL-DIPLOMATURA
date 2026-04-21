@@ -2,7 +2,7 @@ import sys
 import traceback
 from PyQt6.QtWidgets import QApplication
 
-from base_de_datos.db import empleados_db
+from base_de_datos.db import empleados_db, migrar_motos
 from modelo.empleados import Usuario
 from modelo.motos import Moto
 from controlador.app_controlador import ControladorDeApp
@@ -13,6 +13,8 @@ def main():
 
         # inicializa DB/tablas
         empleados_db([Usuario, Moto])
+        # migración incremental: agrega columnas nuevas si no existen
+        migrar_motos()
 
         # arranca flujo UI
         controlador = ControladorDeApp()

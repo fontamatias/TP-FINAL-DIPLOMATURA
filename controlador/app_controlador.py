@@ -18,6 +18,7 @@ from ui.Bienvenida import BienvenidoApp
 from ui.cambiarCC import VistaCambiarContraseña
 from ui.eliminarUsuario import VistaEliminarUsuario
 from ui.produccionUi import VentanaProduccion
+from ui.inspeccionFinalUi import VentanaInspeccionFinal
 
 from modelo.empleados import Usuario
 
@@ -32,6 +33,7 @@ class ControladorDeApp(Observador):
         self._cambiar: VistaCambiarContraseña | None = None
         self._eliminar: VistaEliminarUsuario | None = None
         self._produccion: VentanaProduccion | None = None
+        self._inspeccion: VentanaInspeccionFinal | None = None
 
     def arranque(self) -> int:
         self.login = PresentacionLogin()
@@ -85,6 +87,10 @@ class ControladorDeApp(Observador):
             # hoy solo lo dejamos pasar (la ventana se cierra sola)
             return
 
+        # eventos inspeccion final
+        if nombre in ("inspeccion_marcar_ok", "inspeccion_marcar_no_ok"):
+            return
+
         print(f"Evento no manejado: {evento}")
 
     # ---- acciones ----
@@ -135,6 +141,15 @@ class ControladorDeApp(Observador):
             self._produccion = prod
 
             prod.show()
+            login_dialogo.accept()
+            return
+
+        if sector == "Inspeccion final":
+            insp = VentanaInspeccionFinal(nombre_usuario)
+            insp.conectar(self)
+            self._inspeccion = insp
+
+            insp.show()
             login_dialogo.accept()
             return
 
