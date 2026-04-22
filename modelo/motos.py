@@ -21,5 +21,12 @@ class Moto(MotoModelo):
     modelo = CharField()
     color = CharField()
     fecha_hora = DateTimeField(default=datetime.now)
+
+    # flujo:
+    # EN_PRODUCCION | A_MECANICA | OK_INSPECCION | VENDIDA
     estado = CharField(default="EN_PRODUCCION")
     motivo_rechazo = CharField(null=True)
+
+    # auditoría (opcionales pero útiles para cierres de día)
+    fecha_inspeccion_final = DateTimeField(null=True)
+    fecha_reparacion = DateTimeField(null=True)

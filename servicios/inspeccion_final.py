@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import datetime, date
+
 from modelo.motos import Moto
 
 MOTIVOS_NO_OK = [
@@ -7,6 +9,7 @@ MOTIVOS_NO_OK = [
     "Error eléctrico",
     "Otros",
 ]
+
 
 @dataclass
 class InspeccionResultado:
@@ -17,7 +20,7 @@ class InspeccionResultado:
 
 class ServicioInspeccionFinal:
     def listar_pendientes(self) -> list[Moto]:
-        # Motos que aún no fueron inspeccionadas (las cargadas por producción)
+        # pendientes de inspección final: las que están "en producción"
         return list(
             Moto.select()
             .where(Moto.estado == "EN_PRODUCCION")
@@ -35,6 +38,7 @@ class ServicioInspeccionFinal:
 
         moto.estado = "OK_INSPECCION"
         moto.motivo_rechazo = None
+        moto.fecha_inspeccion_final = datetime.now()
         moto.save()
         return InspeccionResultado(True, "Moto marcada como OK (Inspección final).")
 
@@ -57,5 +61,37 @@ class ServicioInspeccionFinal:
 
         moto.estado = "A_MECANICA"
         moto.motivo_rechazo = motivo
+        moto.fecha_inspeccion_final = datetime.now()
         moto.save()
         return InspeccionResultado(True, f"Moto enviada a Mecánica. Motivo: {motivo}")
+
+    # ===== cierre de día inspección final =====
+    def cantidad_ok_del_dia(self, dia: date) -> int:
+        inicio = datetime(dia.year, dia.month, dia.day, 0, 0, 0)
+        fin = datetime(dia.year, dia.month, dia.day, 23, 59, 59, 999999)
+
+        return (
+            Moto.select()
+            .where(
+                (Moto.estado == "OK_INSPECCION")
+                & (Moto.fecha_inspeccion_final.is_null(False))
+                & (Moto.fecha_inspeccion_final >= inicio)
+                & (Moto.fecha_inspeccion_final <= fin)
+            )
+            .count()
+        )
+
+    def cantidad_no_ok_del_dia(self, dia: date) -> int:
+        inicio = datetime(dia.year, dia.month, dia.day, 0, 0, 0)
+        fin = datetime(dia.year, dia.month, dia.day, 23, 59, 59, 999999)
+
+        return (
+            Moto.select()
+            .where(
+                (Moto.estado == "A_MECANICA")
+                & (Moto.fecha_inspeccion_final.is_null(False))
+                & (Moto.fecha_inspeccion_final >= inicio)
+                & (Moto.fecha_inspeccion_final <= fin)
+            )
+            .count()
+        )

@@ -15,6 +15,7 @@ MODELOS_COLORES = {
     "150": ["Negra", "Blanca"],
 }
 
+
 @dataclass
 class ProduccionResultado:
     ok: bool
@@ -52,6 +53,9 @@ class ServicioProduccion:
                 modelo=modelo,
                 color=color,
                 fecha_hora=datetime.now(),
+                estado="EN_PRODUCCION",
+                motivo_rechazo=None,
+                fecha_inspeccion_final=None,
             )
             return ProduccionResultado(True, "Moto declarada correctamente.")
         except IntegrityError:
@@ -88,7 +92,7 @@ class ServicioProduccion:
             moto.modelo = modelo
             moto.color = color
             moto.fecha_hora = datetime.now()
-            moto.save()  # <-- en peewee es save(), no guardar()
+            moto.save()
             return ProduccionResultado(True, "Moto modificada correctamente.")
         except IntegrityError:
             return ProduccionResultado(False, "El número de motor ya existe en otra moto.")
@@ -104,8 +108,34 @@ class ServicioProduccion:
             .order_by(Moto.fecha_hora.desc())
         )
 
+    # === NUEVO: búsquedas/listados por estado ===
+    def listar_por_estado(self, estado: str) -> list[Moto]:
+        estado = (estado or "").strip()
+        if not estado or estado == "TODOS":
+            return self.listar_todas()
+
+        return list(
+            Moto.select()
+            .where(Moto.estado == estado)
+            .order_by(Moto.fecha_hora.desc())
+        )
+
+    def buscar_por_estado(self, texto: str, estado: str) -> list[Moto]:
+        t = (texto or "").strip()
+        estado = (estado or "").strip()
+
+        q = Moto.select()
+
+        if estado and estado != "TODOS":
+            q = q.where(Moto.estado == estado)
+
+        if t:
+            q = q.where((Moto.numero_chasis.contains(t)) | (Moto.numero_motor.contains(t)))
+
+        return list(q.order_by(Moto.fecha_hora.desc()))
+
     def listar_todas(self) -> list[Moto]:
-        return list(Moto.select().order_by(Moto.fecha_hora.desc()))  # <-- select(), no selec()
+        return list(Moto.select().order_by(Moto.fecha_hora.desc()))
 
     def cantidad_del_dia(self, dia: date) -> int:
         inicio = datetime(dia.year, dia.month, dia.day, 0, 0, 0)

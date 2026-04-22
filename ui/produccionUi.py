@@ -38,6 +38,11 @@ class VentanaProduccion(QMainWindow, Sujeto):
         self.buscar_input = QLineEdit()
         self.buscar_input.setPlaceholderText("Buscar por chasis o motor")
 
+        # NUEVO: filtro por estado
+        self.estado_combo = QComboBox()
+        self.estado_combo.addItems(["TODOS", "EN_PRODUCCION", "OK_INSPECCION", "A_MECANICA"])
+        self.estado_combo.currentTextChanged.connect(lambda _: self._refrescar())
+
         self.btn_agregar = QPushButton("Agregar moto")
         self.btn_agregar.clicked.connect(self._agregar_clicked)
 
@@ -58,8 +63,8 @@ class VentanaProduccion(QMainWindow, Sujeto):
         self._actualizar_contador()
 
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(5)
-        self.tabla.setHorizontalHeaderLabels(["Chasis", "Motor", "Modelo", "Color", "Fecha/Hora"])
+        self.tabla.setColumnCount(6)  # NUEVO: agregamos Estado
+        self.tabla.setHorizontalHeaderLabels(["Chasis", "Motor", "Modelo", "Color", "Fecha/Hora", "Estado"])
         self.tabla.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabla.itemSelectionChanged.connect(self._fila_seleccionada)
@@ -72,25 +77,26 @@ class VentanaProduccion(QMainWindow, Sujeto):
         form.addRow("Motor:", self.motor_input)
         form.addRow("Modelo:", self.modelo_combo)
         form.addRow("Color:", self.color_combo)
+        root.addLayout(form)
 
         acciones1 = QHBoxLayout()
         acciones1.addWidget(self.btn_agregar)
         acciones1.addWidget(self.btn_modificar)
         acciones1.addStretch(1)
+        root.addLayout(acciones1)
 
         acciones2 = QHBoxLayout()
+        acciones2.addWidget(QLabel("Estado:"))
+        acciones2.addWidget(self.estado_combo)
         acciones2.addWidget(self.buscar_input)
         acciones2.addWidget(self.btn_buscar)
         acciones2.addWidget(self.btn_refrescar)
         acciones2.addStretch(1)
         acciones2.addWidget(self.contador_label)
         acciones2.addWidget(self.btn_cerrar_dia)
-
-        root.addLayout(form)
-        root.addLayout(acciones1)
         root.addLayout(acciones2)
 
-        root.addWidget(QLabel("Motos existentes:"))
+        root.addWidget(QLabel("Motos:"))
         root.addWidget(self.tabla)
 
         self.setCentralWidget(central)
@@ -130,6 +136,7 @@ class VentanaProduccion(QMainWindow, Sujeto):
             self.tabla.setItem(r, 2, QTableWidgetItem(str(m.modelo)))
             self.tabla.setItem(r, 3, QTableWidgetItem(str(m.color)))
             self.tabla.setItem(r, 4, QTableWidgetItem(m.fecha_hora.strftime("%Y-%m-%d %H:%M:%S")))
+            self.tabla.setItem(r, 5, QTableWidgetItem(str(getattr(m, "estado", ""))))
 
         self.tabla.resizeColumnsToContents()
 
@@ -144,6 +151,7 @@ class VentanaProduccion(QMainWindow, Sujeto):
         if not chasis:
             return
 
+        # buscar sin filtrar para traer la moto, aunque no esté en el filtro actual
         motos = self.servicio.buscar(chasis)
         if not motos:
             return
@@ -161,13 +169,15 @@ class VentanaProduccion(QMainWindow, Sujeto):
             self.color_combo.setCurrentIndex(idx_color)
 
     def _refrescar(self):
-        motos = self.servicio.listar_todas()
+        estado = self.estado_combo.currentText().strip()
+        motos = self.servicio.listar_por_estado(estado)
         self._llenar_tabla(motos)
         self._actualizar_contador()
 
     def _buscar_clicked(self):
         texto = self.buscar_input.text()
-        motos = self.servicio.buscar(texto)
+        estado = self.estado_combo.currentText().strip()
+        motos = self.servicio.buscar_por_estado(texto, estado)
         self._llenar_tabla(motos)
 
     def _agregar_clicked(self):
@@ -216,7 +226,6 @@ class VentanaProduccion(QMainWindow, Sujeto):
             f"Producción del día ({self._dia_actual.isoformat()}): {cantidad} motos.\n\nEl programa se cerrará."
         )
 
-        # avisar al controlador (por si quiere loguear, volver al login, etc.)
         self.notificar(Evento(
             nombre="produccion_cierre_dia",
             data={"dia": self._dia_actual.isoformat(), "cantidad": cantidad}

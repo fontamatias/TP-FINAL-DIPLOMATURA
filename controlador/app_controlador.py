@@ -12,7 +12,9 @@ from PyQt6.QtWidgets import QMessageBox
 from patrones.observadores import Observador, Evento
 
 from servicios.autentificacion import ServicioAutentificacion
-from servicios.inspeccion_final import ServicioInspeccionFinal  # NUEVO
+from servicios.inspeccion_final import ServicioInspeccionFinal
+from servicios.mecanica import ServicioMecanica
+from servicios.distribucion import ServicioDistribucion
 
 from ui.loginUi import PresentacionLogin
 from ui.registroUi import VistaRegistro
@@ -20,7 +22,9 @@ from ui.Bienvenida import BienvenidoApp
 from ui.cambiarCC import VistaCambiarContraseña
 from ui.eliminarUsuario import VistaEliminarUsuario
 from ui.produccionUi import VentanaProduccion
-from ui.inspeccionFinalUi import VentanaInspeccionFinal  # NUEVO
+from ui.inspeccionFinalUi import VentanaInspeccionFinal
+from ui.mecanicaUi import VentanaMecanica
+from ui.distribucionUi import VentanaDistribucion
 
 from modelo.empleados import Usuario
 
@@ -28,7 +32,9 @@ from modelo.empleados import Usuario
 class ControladorDeApp(Observador):
     def __init__(self):
         self.autentificacion = ServicioAutentificacion()
-        self.inspeccion_srv = ServicioInspeccionFinal()  # NUEVO
+        self.inspeccion_srv = ServicioInspeccionFinal()
+        self.mecanica_srv = ServicioMecanica()
+        self.distribucion_srv = ServicioDistribucion()
 
         self.login: PresentacionLogin | None = None
         self.ventana_bienvenido = None
@@ -36,7 +42,9 @@ class ControladorDeApp(Observador):
         self._cambiar: VistaCambiarContraseña | None = None
         self._eliminar: VistaEliminarUsuario | None = None
         self._produccion: VentanaProduccion | None = None
-        self._inspeccion: VentanaInspeccionFinal | None = None  # NUEVO
+        self._inspeccion: VentanaInspeccionFinal | None = None
+        self._mecanica: VentanaMecanica | None = None
+        self._distribucion: VentanaDistribucion | None = None
 
     def arranque(self) -> int:
         self.login = PresentacionLogin()
@@ -84,7 +92,7 @@ class ControladorDeApp(Observador):
             self._manejar_eliminar_usuario(subject, data)
             return
 
-        # eventos inspeccion final (NUEVO)
+        # eventos inspeccion final
         if nombre == "inspeccion_marcar_ok":
             self._manejar_inspeccion_ok(subject, data)
             return
@@ -93,10 +101,35 @@ class ControladorDeApp(Observador):
             self._manejar_inspeccion_no_ok(subject, data)
             return
 
+        if nombre == "inspeccion_cierre_dia":
+            return
+
+        # eventos mecánica
+        if nombre == "mecanica_dar_alta":
+            self._manejar_mecanica_dar_alta(subject, data)
+            return
+
+        if nombre == "mecanica_cierre_dia":
+            return
+
+        # eventos distribución
+        if nombre == "distribucion_crear_pedido":
+            self._manejar_distribucion_crear_pedido(subject)
+            return
+
+        if nombre == "distribucion_agregar_a_pedido":
+            self._manejar_distribucion_agregar_a_pedido(subject, data)
+            return
+
+        if nombre == "distribucion_finalizar_pedido":
+            self._manejar_distribucion_finalizar_pedido(subject, data)
+            return
+
+        if nombre == "distribucion_cierre_dia":
+            return
+
         # eventos produccion
         if nombre == "produccion_cierre_dia":
-            # opcional: log, volver al login, etc.
-            # hoy solo lo dejamos pasar (la ventana se cierra sola)
             return
 
         print(f"Evento no manejado: {evento}")
@@ -147,18 +180,31 @@ class ControladorDeApp(Observador):
             prod = VentanaProduccion(nombre_usuario)
             prod.conectar(self)
             self._produccion = prod
-
             prod.show()
             login_dialogo.accept()
             return
 
-        # NUEVO: abrir Inspección final
         if sector == "Inspeccion final":
             insp = VentanaInspeccionFinal(nombre_usuario)
             insp.conectar(self)
             self._inspeccion = insp
-
             insp.show()
+            login_dialogo.accept()
+            return
+
+        if sector == "Mecanica":
+            mec = VentanaMecanica(nombre_usuario)
+            mec.conectar(self)
+            self._mecanica = mec
+            mec.show()
+            login_dialogo.accept()
+            return
+
+        if sector == "Distribucion":
+            dist = VentanaDistribucion(nombre_usuario)
+            dist.conectar(self)
+            self._distribucion = dist
+            dist.show()
             login_dialogo.accept()
             return
 
@@ -219,7 +265,7 @@ class ControladorDeApp(Observador):
         QMessageBox.warning(vista, "Error", res.message)
 
     # ============================
-    # NUEVO: handlers Inspección Final
+    # handlers Inspecci��n Final
     # ============================
     def _manejar_inspeccion_ok(self, vista: VentanaInspeccionFinal, data: dict) -> None:
         chasis = data.get("chasis", "")
@@ -242,8 +288,63 @@ class ControladorDeApp(Observador):
             vista.refrescar()
             return
 
-        # si el servicio devuelve errores
         if getattr(res, "errores", None):
             QMessageBox.warning(vista, "Error", res.message + "\n" + "\n".join(res.errores or []))
+        else:
+            QMessageBox.warning(vista, "Error", res.message)
+
+    # ============================
+    # handlers Mecánica
+    # ============================
+    def _manejar_mecanica_dar_alta(self, vista: VentanaMecanica, data: dict) -> None:
+        chasis = data.get("chasis", "")
+        res = self.mecanica_srv.dar_alta(chasis)
+
+        if res.ok:
+            QMessageBox.information(vista, "OK", res.message)
+            vista.refrescar()
+            return
+
+        QMessageBox.warning(vista, "Error", res.message)
+
+    # ============================
+    # handlers Distribución
+    # ============================
+    def _manejar_distribucion_crear_pedido(self, vista: VentanaDistribucion) -> None:
+        venta = self.distribucion_srv.crear_venta_pendiente()
+        QMessageBox.information(vista, "OK", f"Pedido creado. Nro de venta: {venta.numero_venta}")
+        vista.set_pedido_actual(venta.id, venta.numero_venta)
+        vista.refrescar()
+
+    def _manejar_distribucion_agregar_a_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
+        venta_id = data.get("venta_id")
+        chasis = data.get("chasis", "")
+
+        try:
+            venta_id_int = int(venta_id)
+        except Exception:
+            QMessageBox.warning(vista, "Error", "Venta inválida.")
+            return
+
+        res = self.distribucion_srv.agregar_moto_a_venta(venta_id_int, chasis)
+        if res.ok:
+            QMessageBox.information(vista, "OK", res.message)
+            vista.refrescar()
+        else:
+            QMessageBox.warning(vista, "Error", res.message)
+
+    def _manejar_distribucion_finalizar_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
+        venta_id = data.get("venta_id")
+        try:
+            venta_id_int = int(venta_id)
+        except Exception:
+            QMessageBox.warning(vista, "Error", "Venta inválida.")
+            return
+
+        res = self.distribucion_srv.finalizar_venta(venta_id_int)
+        if res.ok:
+            QMessageBox.information(vista, "OK", res.message)
+            vista.set_pedido_actual(None, None)
+            vista.refrescar()
         else:
             QMessageBox.warning(vista, "Error", res.message)
