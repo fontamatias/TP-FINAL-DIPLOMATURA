@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Callable
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -9,7 +10,8 @@ from PyQt6.QtWidgets import (
 )
 
 from patrones.observadores import Sujeto, Evento
-from servicios.inspeccion_final import ServicioInspeccionFinal, MOTIVOS_NO_OK
+from servicios.inspeccion_final import MOTIVOS_NO_OK
+from app.constantes import Eventos
 
 
 class VentanaInspeccionFinal(QMainWindow, Sujeto):
@@ -19,7 +21,11 @@ class VentanaInspeccionFinal(QMainWindow, Sujeto):
 
         self.setWindowTitle(f"Inspección final - Usuario: {nombre_usuario}")
 
-        self.servicio = ServicioInspeccionFinal()
+        # 4b) el servicio se inyecta desde el controlador
+        self._listar_pendientes: Callable[[], list] | None = None
+        self._cantidad_ok_del_dia: Callable[[date], int] | None = None
+        self._cantidad_no_ok_del_dia: Callable[[date], int] | None = None
+
         self._dia_actual = date.today()
 
         self.tree = QTreeWidget()
@@ -43,14 +49,12 @@ class VentanaInspeccionFinal(QMainWindow, Sujeto):
         self.btn_no_ok = QPushButton("Marcar NO OK (a Mecánica)")
         self.btn_no_ok.clicked.connect(self._no_ok_clicked)
 
-        # NUEVO: resumen + cerrar día
         self.lbl_resumen = QLabel("")
         self.lbl_resumen.setStyleSheet("font-size: 14px; font-weight: bold;")
 
         self.btn_cerrar_dia = QPushButton("Cerrar día")
         self.btn_cerrar_dia.clicked.connect(self._cerrar_dia_clicked)
 
-        # Layout
         central = QWidget()
         root = QVBoxLayout(central)
 
@@ -78,6 +82,11 @@ class VentanaInspeccionFinal(QMainWindow, Sujeto):
 
         self.setCentralWidget(central)
 
+    # 4b) setters de inyección
+    def set_servicio(self, *, listar_pendientes, cantidad_ok_del_dia, cantidad_no_ok_del_dia) -> None:
+        self._listar_pendientes = listar_pendientes
+        self._cantidad_ok_del_dia = cantidad_ok_del_dia
+        self._cantidad_no_ok_del_dia = cantidad_no_ok_del_dia
         self._refrescar()
 
     def _moto_seleccionada_chasis(self) -> str | None:
@@ -87,15 +96,22 @@ class VentanaInspeccionFinal(QMainWindow, Sujeto):
         return item.text(0)
 
     def _actualizar_resumen(self):
-        ok_hoy = self.servicio.cantidad_ok_del_dia(self._dia_actual)
-        no_ok_hoy = self.servicio.cantidad_no_ok_del_dia(self._dia_actual)
+        if not self._cantidad_ok_del_dia or not self._cantidad_no_ok_del_dia:
+            self.lbl_resumen.setText("")
+            return
+
+        ok_hoy = self._cantidad_ok_del_dia(self._dia_actual)
+        no_ok_hoy = self._cantidad_no_ok_del_dia(self._dia_actual)
         self.lbl_resumen.setText(
             f"Inspección de hoy ({self._dia_actual.isoformat()}): OK={ok_hoy} | NO OK={no_ok_hoy}"
         )
 
     def _refrescar(self):
+        if not self._listar_pendientes:
+            return
+
         self.tree.clear()
-        motos = self.servicio.listar_pendientes()
+        motos = self._listar_pendientes()
 
         for m in motos:
             it = QTreeWidgetItem([
@@ -121,7 +137,7 @@ class VentanaInspeccionFinal(QMainWindow, Sujeto):
             return
 
         self.notificar(Evento(
-            nombre="inspeccion_marcar_ok",
+            nombre=Eventos.INSPECCION_MARCAR_OK,
             data={"chasis": chasis}
         ))
 
@@ -137,13 +153,18 @@ class VentanaInspeccionFinal(QMainWindow, Sujeto):
             return
 
         self.notificar(Evento(
-            nombre="inspeccion_marcar_no_ok",
+            nombre=Eventos.INSPECCION_MARCAR_NO_OK,
             data={"chasis": chasis, "motivo": motivo}
         ))
 
     def _cerrar_dia_clicked(self):
-        ok_hoy = self.servicio.cantidad_ok_del_dia(self._dia_actual)
-        no_ok_hoy = self.servicio.cantidad_no_ok_del_dia(self._dia_actual)
+        # 4c) el cálculo se hace con callbacks (no con servicio directo)
+        if not self._cantidad_ok_del_dia or not self._cantidad_no_ok_del_dia:
+            self.close()
+            return
+
+        ok_hoy = self._cantidad_ok_del_dia(self._dia_actual)
+        no_ok_hoy = self._cantidad_no_ok_del_dia(self._dia_actual)
 
         QMessageBox.information(
             self,
@@ -155,7 +176,7 @@ class VentanaInspeccionFinal(QMainWindow, Sujeto):
         )
 
         self.notificar(Evento(
-            nombre="inspeccion_cierre_dia",
+            nombre=Eventos.INSPECCION_CIERRE_DIA,
             data={"dia": self._dia_actual.isoformat(), "ok": ok_hoy, "no_ok": no_ok_hoy}
         ))
 

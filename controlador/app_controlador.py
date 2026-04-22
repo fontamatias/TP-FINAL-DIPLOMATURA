@@ -7,14 +7,19 @@ controlador principal usando patron Observador:
 """
 from __future__ import annotations
 
+from typing import Any, Callable
+
 from PyQt6.QtWidgets import QMessageBox
 
 from patrones.observadores import Observador, Evento
+
+from app.constantes import Eventos, Sectores
 
 from servicios.autentificacion import ServicioAutentificacion
 from servicios.inspeccion_final import ServicioInspeccionFinal
 from servicios.mecanica import ServicioMecanica
 from servicios.distribucion import ServicioDistribucion
+from servicios.produccion import ServicioProduccion
 
 from ui.loginUi import PresentacionLogin
 from ui.registroUi import VistaRegistro
@@ -31,11 +36,14 @@ from modelo.empleados import Usuario
 
 class ControladorDeApp(Observador):
     def __init__(self):
+        # servicios (única fuente)
         self.autentificacion = ServicioAutentificacion()
+        self.produccion_srv = ServicioProduccion()
         self.inspeccion_srv = ServicioInspeccionFinal()
         self.mecanica_srv = ServicioMecanica()
         self.distribucion_srv = ServicioDistribucion()
 
+        # vistas activas
         self.login: PresentacionLogin | None = None
         self.ventana_bienvenido = None
         self._registro: VistaRegistro | None = None
@@ -46,6 +54,32 @@ class ControladorDeApp(Observador):
         self._mecanica: VentanaMecanica | None = None
         self._distribucion: VentanaDistribucion | None = None
 
+        # 4a) dispatcher
+        self._handlers: dict[str, Callable[[Any, dict], None]] = {
+            # login/auth
+            Eventos.LOGIN_SUBMIT: self._h_login_submit,
+            Eventos.REGISTRO_REQUESTED: self._h_registro_requested,
+            Eventos.CAMBIAR_CONTRASENA_REQUESTED: self._h_cambiar_contrasena_requested,
+            Eventos.ELIMINAR_USUARIO_REQUESTED: self._h_eliminar_usuario_requested,
+            Eventos.REGISTRO_SUBMIT: self._h_registro_submit,
+            Eventos.CAMBIAR_CONTRASENA_SUBMIT: self._h_cambiar_contrasena_submit,
+            Eventos.ELIMINAR_USUARIO_SUBMIT: self._h_eliminar_usuario_submit,
+            # inspección final
+            Eventos.INSPECCION_MARCAR_OK: self._h_inspeccion_ok,
+            Eventos.INSPECCION_MARCAR_NO_OK: self._h_inspeccion_no_ok,
+            Eventos.INSPECCION_CIERRE_DIA: self._h_inspeccion_cierre_dia,
+            # mecánica
+            Eventos.MECANICA_DAR_ALTA: self._h_mecanica_dar_alta,
+            Eventos.MECANICA_CIERRE_DIA: self._h_mecanica_cierre_dia,
+            # distribución
+            Eventos.DISTRIBUCION_CREAR_PEDIDO: self._h_distribucion_crear_pedido,
+            Eventos.DISTRIBUCION_AGREGAR_A_PEDIDO: self._h_distribucion_agregar_a_pedido,
+            Eventos.DISTRIBUCION_FINALIZAR_PEDIDO: self._h_distribucion_finalizar_pedido,
+            Eventos.DISTRIBUCION_CIERRE_DIA: self._h_distribucion_cierre_dia,
+            # producción
+            Eventos.PRODUCCION_CIERRE_DIA: self._h_produccion_cierre_dia,
+        }
+
     def arranque(self) -> int:
         self.login = PresentacionLogin()
         self.login.conectar(self)
@@ -55,87 +89,53 @@ class ControladorDeApp(Observador):
             return 1
         return 0
 
+    # ============================
+    # 4d) helpers de mensajes
+    # ============================
+    def _msg_ok(self, parent, titulo: str, mensaje: str) -> None:
+        QMessageBox.information(parent, titulo, mensaje)
+
+    def _msg_warn(self, parent, titulo: str, mensaje: str) -> None:
+        QMessageBox.warning(parent, titulo, mensaje)
+
+    def _msg_crit(self, parent, titulo: str, mensaje: str) -> None:
+        QMessageBox.critical(parent, titulo, mensaje)
+
+    def _mostrar_resultado(self, parent, res, ok_title="OK", err_title="Error", refresh: Callable[[], None] | None = None):
+        """
+        res: objeto con atributos ok, message y opcional errores
+        """
+        if getattr(res, "ok", False):
+            self._msg_ok(parent, ok_title, getattr(res, "message", "Operación exitosa."))
+            if refresh:
+                refresh()
+            return True
+
+        msg = getattr(res, "message", "Ocurrió un error.")
+        errores = getattr(res, "errores", None)
+        if errores:
+            msg = msg + "\n" + "\n".join(errores)
+        self._msg_warn(parent, err_title, msg)
+        return False
+
+    # ============================
     # OBSERVADOR
+    # ============================
     def update(self, subject, evento: Evento) -> None:
         nombre = evento.nombre
         data = evento.data or {}
 
-        # eventos del login
-        if nombre == "login_submit":
-            self._manejar_login(subject, data)
+        handler = self._handlers.get(nombre)
+        if not handler:
+            print(f"Evento no manejado: {evento}")
             return
 
-        if nombre == "registro_requested":
-            self._abrir_registro(subject)
-            return
+        handler(subject, data)
 
-        if nombre == "cambiar_contrasena_requested":
-            self._abrir_cambiar_contrasena(subject)
-            return
-
-        if nombre == "eliminar_usuario_requested":
-            self._abrir_eliminar_usuario(subject)
-            return
-
-        # eventos del registro
-        if nombre == "registro_submit":
-            self._manejar_registro(subject, data)
-            return
-
-        # eventos cambiar contraseña
-        if nombre == "cambiar_contrasena_submit":
-            self._manejar_cambio_contrasena(subject, data)
-            return
-
-        # eventos eliminar usuario
-        if nombre == "eliminar_usuario_submit":
-            self._manejar_eliminar_usuario(subject, data)
-            return
-
-        # eventos inspeccion final
-        if nombre == "inspeccion_marcar_ok":
-            self._manejar_inspeccion_ok(subject, data)
-            return
-
-        if nombre == "inspeccion_marcar_no_ok":
-            self._manejar_inspeccion_no_ok(subject, data)
-            return
-
-        if nombre == "inspeccion_cierre_dia":
-            return
-
-        # eventos mecánica
-        if nombre == "mecanica_dar_alta":
-            self._manejar_mecanica_dar_alta(subject, data)
-            return
-
-        if nombre == "mecanica_cierre_dia":
-            return
-
-        # eventos distribución
-        if nombre == "distribucion_crear_pedido":
-            self._manejar_distribucion_crear_pedido(subject)
-            return
-
-        if nombre == "distribucion_agregar_a_pedido":
-            self._manejar_distribucion_agregar_a_pedido(subject, data)
-            return
-
-        if nombre == "distribucion_finalizar_pedido":
-            self._manejar_distribucion_finalizar_pedido(subject, data)
-            return
-
-        if nombre == "distribucion_cierre_dia":
-            return
-
-        # eventos produccion
-        if nombre == "produccion_cierre_dia":
-            return
-
-        print(f"Evento no manejado: {evento}")
-
-    # ---- acciones ----
-    def _abrir_registro(self, dialogo_login: PresentacionLogin) -> None:
+    # ============================
+    # handlers login/auth
+    # ============================
+    def _h_registro_requested(self, dialogo_login: PresentacionLogin, data: dict) -> None:
         reg = VistaRegistro()
         reg.conectar(self)
         self._registro = reg
@@ -147,63 +147,91 @@ class ControladorDeApp(Observador):
         reg.desconectar(self)
         self._registro = None
 
-    def _manejar_registro(self, reg_vista: VistaRegistro, data: dict) -> None:
+    def _h_registro_submit(self, reg_vista: VistaRegistro, data: dict) -> None:
         u = data.get("usuario", "")
         c1 = data.get("c1", "")
         c2 = data.get("c2", "")
         sector = data.get("sector", "")
 
         res = self.autentificacion.registro(u, c1, c2, sector)
-        if res.ok:
-            QMessageBox.information(reg_vista, "OK", res.message)
+        if self._mostrar_resultado(reg_vista, res):
             reg_vista.accept()
-            return
 
-        if res.errores:
-            QMessageBox.warning(reg_vista, "Error", res.message + "\n" + "\n".join(res.errores))
-        else:
-            QMessageBox.warning(reg_vista, "Error", res.message)
-
-    def _manejar_login(self, login_dialogo: PresentacionLogin, data: dict) -> None:
+    def _h_login_submit(self, login_dialogo: PresentacionLogin, data: dict) -> None:
         nombre_usuario = data.get("usuario", "")
-        contraseña = data.get("contraseña", "")
+        contrasena = data.get("contraseña", "")
 
-        res = self.autentificacion.login(nombre_usuario, contraseña)
-        if not res.ok:
-            QMessageBox.critical(login_dialogo, "Login invalido", res.message)
+        res = self.autentificacion.login(nombre_usuario, contrasena)
+        if not getattr(res, "ok", False):
+            self._msg_crit(login_dialogo, "Login inválido", getattr(res, "message", "Login inválido."))
             return
 
         usuario = Usuario.get_or_none(Usuario.nombre_usuario == (nombre_usuario or "").strip())
         sector = usuario.sector if usuario else ""
 
-        if sector == "Linea de produccion":
+        # 4b) inyección: las vistas NO crean servicios; el controlador les setea callbacks
+        if sector == Sectores.LINEA_PRODUCCION:
             prod = VentanaProduccion(nombre_usuario)
             prod.conectar(self)
             self._produccion = prod
+
+            prod.set_servicio(
+                listar_por_estado=self.produccion_srv.listar_por_estado,
+                buscar_por_estado=self.produccion_srv.buscar_por_estado,
+                buscar=self.produccion_srv.buscar,
+                declarar_moto=self.produccion_srv.declarar_moto,
+                modificar_moto_por_chasis=self.produccion_srv.modificar_moto_por_chasis,
+                colores_para_modelo=self.produccion_srv.colores_para_modelo,
+                cantidad_del_dia=self.produccion_srv.cantidad_del_dia,
+            )
+
             prod.show()
             login_dialogo.accept()
             return
 
-        if sector == "Inspeccion final":
+        if sector == Sectores.INSPECCION_FINAL:
             insp = VentanaInspeccionFinal(nombre_usuario)
             insp.conectar(self)
             self._inspeccion = insp
+
+            insp.set_servicio(
+                listar_pendientes=self.inspeccion_srv.listar_pendientes,
+                cantidad_ok_del_dia=self.inspeccion_srv.cantidad_ok_del_dia,
+                cantidad_no_ok_del_dia=self.inspeccion_srv.cantidad_no_ok_del_dia,
+            )
+
             insp.show()
             login_dialogo.accept()
             return
 
-        if sector == "Mecanica":
+        if sector == Sectores.MECANICA:
             mec = VentanaMecanica(nombre_usuario)
             mec.conectar(self)
             self._mecanica = mec
+
+            mec.set_servicio(
+                listar_en_mecanica=self.mecanica_srv.listar_en_mecanica,
+                cantidad_reparadas_del_dia=self.mecanica_srv.cantidad_reparadas_del_dia,
+            )
+
             mec.show()
             login_dialogo.accept()
             return
 
-        if sector == "Distribucion":
+        if sector == Sectores.DISTRIBUCION:
             dist = VentanaDistribucion(nombre_usuario)
             dist.conectar(self)
             self._distribucion = dist
+
+            dist.set_servicio(
+                listar_stock_listo=self.distribucion_srv.listar_stock_listo,
+                listar_ventas_pendientes=self.distribucion_srv.listar_ventas_pendientes,
+                listar_ventas_finalizadas=self.distribucion_srv.listar_ventas_finalizadas,
+                items_de_venta=self.distribucion_srv.items_de_venta,
+                ventas_finalizadas_del_dia=self.distribucion_srv.ventas_finalizadas_del_dia,
+                motos_vendidas_del_dia=self.distribucion_srv.motos_vendidas_del_dia,
+            )
+
             dist.show()
             login_dialogo.accept()
             return
@@ -213,7 +241,7 @@ class ControladorDeApp(Observador):
         bien.show()
         login_dialogo.accept()
 
-    def _abrir_cambiar_contrasena(self, dialogo_login: PresentacionLogin) -> None:
+    def _h_cambiar_contrasena_requested(self, dialogo_login: PresentacionLogin, data: dict) -> None:
         vista = VistaCambiarContraseña()
         vista.conectar(self)
         self._cambiar = vista
@@ -224,24 +252,17 @@ class ControladorDeApp(Observador):
         vista.desconectar(self)
         self._cambiar = None
 
-    def _manejar_cambio_contrasena(self, vista: VistaCambiarContraseña, data: dict) -> None:
+    def _h_cambiar_contrasena_submit(self, vista: VistaCambiarContraseña, data: dict) -> None:
         u = data.get("usuario", "")
         actual = data.get("actual", "")
         n1 = data.get("nueva1", "")
         n2 = data.get("nueva2", "")
 
         res = self.autentificacion.cambiar_contrasena(u, actual, n1, n2)
-        if res.ok:
-            QMessageBox.information(vista, "OK", res.message)
+        if self._mostrar_resultado(vista, res):
             vista.accept()
-            return
 
-        if res.errores:
-            QMessageBox.warning(vista, "Error", res.message + "\n" + "\n".join(res.errores))
-        else:
-            QMessageBox.warning(vista, "Error", res.message)
-
-    def _abrir_eliminar_usuario(self, dialogo_login: PresentacionLogin) -> None:
+    def _h_eliminar_usuario_requested(self, dialogo_login: PresentacionLogin, data: dict) -> None:
         vista = VistaEliminarUsuario()
         vista.conectar(self)
         self._eliminar = vista
@@ -252,99 +273,92 @@ class ControladorDeApp(Observador):
         vista.desconectar(self)
         self._eliminar = None
 
-    def _manejar_eliminar_usuario(self, vista: VistaEliminarUsuario, data: dict) -> None:
+    def _h_eliminar_usuario_submit(self, vista: VistaEliminarUsuario, data: dict) -> None:
         u = data.get("usuario", "")
         actual = data.get("actual", "")
 
         res = self.autentificacion.eliminar_usuario(u, actual)
-        if res.ok:
-            QMessageBox.information(vista, "OK", res.message)
+        if getattr(res, "ok", False):
+            self._msg_ok(vista, "OK", getattr(res, "message", "Usuario eliminado."))
             vista.accept()
             return
-
-        QMessageBox.warning(vista, "Error", res.message)
+        self._msg_warn(vista, "Error", getattr(res, "message", "No se pudo eliminar el usuario."))
 
     # ============================
-    # handlers Inspecci��n Final
+    # handlers Inspección Final
     # ============================
-    def _manejar_inspeccion_ok(self, vista: VentanaInspeccionFinal, data: dict) -> None:
+    def _h_inspeccion_ok(self, vista: VentanaInspeccionFinal, data: dict) -> None:
         chasis = data.get("chasis", "")
         res = self.inspeccion_srv.marcar_ok(chasis)
+        self._mostrar_resultado(vista, res, refresh=vista.refrescar)
 
-        if res.ok:
-            QMessageBox.information(vista, "OK", res.message)
-            vista.refrescar()
-            return
-
-        QMessageBox.warning(vista, "Error", res.message)
-
-    def _manejar_inspeccion_no_ok(self, vista: VentanaInspeccionFinal, data: dict) -> None:
+    def _h_inspeccion_no_ok(self, vista: VentanaInspeccionFinal, data: dict) -> None:
         chasis = data.get("chasis", "")
         motivo = data.get("motivo", "")
         res = self.inspeccion_srv.marcar_no_ok(chasis, motivo)
+        self._mostrar_resultado(vista, res, refresh=vista.refrescar)
 
-        if res.ok:
-            QMessageBox.information(vista, "OK", res.message)
-            vista.refrescar()
-            return
-
-        if getattr(res, "errores", None):
-            QMessageBox.warning(vista, "Error", res.message + "\n" + "\n".join(res.errores or []))
-        else:
-            QMessageBox.warning(vista, "Error", res.message)
+    def _h_inspeccion_cierre_dia(self, vista: VentanaInspeccionFinal, data: dict) -> None:
+        # 4c) cierre de día “real”: acá podrías persistir auditoría si querés.
+        # Por ahora, dejamos consistente: se cierra la ventana (ya se cerró en UI)
+        # y liberamos referencia.
+        self._inspeccion = None
 
     # ============================
     # handlers Mecánica
     # ============================
-    def _manejar_mecanica_dar_alta(self, vista: VentanaMecanica, data: dict) -> None:
+    def _h_mecanica_dar_alta(self, vista: VentanaMecanica, data: dict) -> None:
         chasis = data.get("chasis", "")
         res = self.mecanica_srv.dar_alta(chasis)
+        self._mostrar_resultado(vista, res, refresh=vista.refrescar)
 
-        if res.ok:
-            QMessageBox.information(vista, "OK", res.message)
-            vista.refrescar()
-            return
-
-        QMessageBox.warning(vista, "Error", res.message)
+    def _h_mecanica_cierre_dia(self, vista: VentanaMecanica, data: dict) -> None:
+        self._mecanica = None
 
     # ============================
     # handlers Distribución
     # ============================
-    def _manejar_distribucion_crear_pedido(self, vista: VentanaDistribucion) -> None:
+    def _h_distribucion_crear_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
         venta = self.distribucion_srv.crear_venta_pendiente()
-        QMessageBox.information(vista, "OK", f"Pedido creado. Nro de venta: {venta.numero_venta}")
+        self._msg_ok(vista, "OK", f"Pedido creado. Nro de venta: {venta.numero_venta}")
         vista.set_pedido_actual(venta.id, venta.numero_venta)
         vista.refrescar()
 
-    def _manejar_distribucion_agregar_a_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
+    def _h_distribucion_agregar_a_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
         venta_id = data.get("venta_id")
         chasis = data.get("chasis", "")
 
         try:
             venta_id_int = int(venta_id)
         except Exception:
-            QMessageBox.warning(vista, "Error", "Venta inválida.")
+            self._msg_warn(vista, "Error", "Venta inválida.")
             return
 
         res = self.distribucion_srv.agregar_moto_a_venta(venta_id_int, chasis)
-        if res.ok:
-            QMessageBox.information(vista, "OK", res.message)
-            vista.refrescar()
-        else:
-            QMessageBox.warning(vista, "Error", res.message)
+        self._mostrar_resultado(vista, res, refresh=vista.refrescar)
 
-    def _manejar_distribucion_finalizar_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
+    def _h_distribucion_finalizar_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
         venta_id = data.get("venta_id")
         try:
             venta_id_int = int(venta_id)
         except Exception:
-            QMessageBox.warning(vista, "Error", "Venta inválida.")
+            self._msg_warn(vista, "Error", "Venta inválida.")
             return
 
         res = self.distribucion_srv.finalizar_venta(venta_id_int)
-        if res.ok:
-            QMessageBox.information(vista, "OK", res.message)
+        if getattr(res, "ok", False):
+            self._msg_ok(vista, "OK", getattr(res, "message", "Pedido finalizado."))
             vista.set_pedido_actual(None, None)
             vista.refrescar()
-        else:
-            QMessageBox.warning(vista, "Error", res.message)
+            return
+
+        self._msg_warn(vista, "Error", getattr(res, "message", "No se pudo finalizar el pedido."))
+
+    def _h_distribucion_cierre_dia(self, vista: VentanaDistribucion, data: dict) -> None:
+        self._distribucion = None
+
+    # ============================
+    # handlers Producción
+    # ============================
+    def _h_produccion_cierre_dia(self, vista: VentanaProduccion, data: dict) -> None:
+        self._produccion = None

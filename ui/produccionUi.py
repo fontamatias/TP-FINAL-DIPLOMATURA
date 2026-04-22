@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+from datetime import date
+from typing import Callable, Iterable
+
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLineEdit, QComboBox, QPushButton, QLabel, QMessageBox,
     QTableWidget, QTableWidgetItem
 )
-from PyQt6.QtCore import Qt, QTimer
-from datetime import date
+from PyQt6.QtCore import QTimer
 
-from servicios.produccion import ServicioProduccion
 from patrones.observadores import Sujeto, Evento
+from app.constantes import Eventos
 
 
 class VentanaProduccion(QMainWindow, Sujeto):
@@ -19,7 +21,15 @@ class VentanaProduccion(QMainWindow, Sujeto):
 
         self.setWindowTitle(f"Producción - Usuario: {nombre_usuario}")
 
-        self.servicio = ServicioProduccion()
+        # 4b) Servicio inyectado desde el controlador (la UI no instancia ServicioProduccion)
+        self._listar_por_estado: Callable[[str], list] | None = None
+        self._buscar_por_estado: Callable[[str, str], list] | None = None
+        self._buscar: Callable[[str], list] | None = None
+        self._declarar_moto: Callable[[str, str, str, str], Any] | None = None
+        self._modificar_moto_por_chasis: Callable[[str, str, str, str], Any] | None = None
+        self._colores_para_modelo: Callable[[str], list[str]] | None = None
+        self._cantidad_del_dia: Callable[[date], int] | None = None
+
         self._dia_actual = date.today()
 
         self.chasis_input = QLineEdit()
@@ -33,12 +43,11 @@ class VentanaProduccion(QMainWindow, Sujeto):
         self.modelo_combo.currentTextChanged.connect(self._modelo_cambio)
 
         self.color_combo = QComboBox()
-        self._cargar_colores("110")
 
         self.buscar_input = QLineEdit()
         self.buscar_input.setPlaceholderText("Buscar por chasis o motor")
 
-        # NUEVO: filtro por estado
+        # filtro por estado
         self.estado_combo = QComboBox()
         self.estado_combo.addItems(["TODOS", "EN_PRODUCCION", "OK_INSPECCION", "A_MECANICA"])
         self.estado_combo.currentTextChanged.connect(lambda _: self._refrescar())
@@ -60,10 +69,9 @@ class VentanaProduccion(QMainWindow, Sujeto):
 
         self.contador_label = QLabel("")
         self.contador_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self._actualizar_contador()
 
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(6)  # NUEVO: agregamos Estado
+        self.tabla.setColumnCount(6)
         self.tabla.setHorizontalHeaderLabels(["Chasis", "Motor", "Modelo", "Color", "Fecha/Hora", "Estado"])
         self.tabla.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -101,16 +109,47 @@ class VentanaProduccion(QMainWindow, Sujeto):
 
         self.setCentralWidget(central)
 
-        self._refrescar()
-
         self.timer = QTimer(self)
         self.timer.setInterval(30_000)
         self.timer.timeout.connect(self._verificar_cambio_dia)
         self.timer.start()
 
+    # =========================
+    # 4b) inyección de servicio
+    # =========================
+    def set_servicio(
+        self,
+        *,
+        listar_por_estado,
+        buscar_por_estado,
+        buscar,
+        declarar_moto,
+        modificar_moto_por_chasis,
+        colores_para_modelo,
+        cantidad_del_dia,
+    ) -> None:
+        self._listar_por_estado = listar_por_estado
+        self._buscar_por_estado = buscar_por_estado
+        self._buscar = buscar
+        self._declarar_moto = declarar_moto
+        self._modificar_moto_por_chasis = modificar_moto_por_chasis
+        self._colores_para_modelo = colores_para_modelo
+        self._cantidad_del_dia = cantidad_del_dia
+
+        # inicial
+        self._cargar_colores(self.modelo_combo.currentText())
+        self._refrescar()
+        self._actualizar_contador()
+
+    # --------------------
+    # helpers / UI
+    # --------------------
     def _cargar_colores(self, modelo: str):
         self.color_combo.clear()
-        self.color_combo.addItems(self.servicio.colores_para_modelo(modelo))
+        if not self._colores_para_modelo:
+            self.color_combo.addItems([])
+            return
+        self.color_combo.addItems(self._colores_para_modelo(modelo))
 
     def _modelo_cambio(self, modelo: str):
         self._cargar_colores(modelo)
@@ -122,10 +161,13 @@ class VentanaProduccion(QMainWindow, Sujeto):
             self._actualizar_contador()
 
     def _actualizar_contador(self):
-        cantidad = self.servicio.cantidad_del_dia(self._dia_actual)
+        if not self._cantidad_del_dia:
+            self.contador_label.setText("")
+            return
+        cantidad = self._cantidad_del_dia(self._dia_actual)
         self.contador_label.setText(f"Producción de hoy ({self._dia_actual.isoformat()}): {cantidad}")
 
-    def _llenar_tabla(self, motos):
+    def _llenar_tabla(self, motos: Iterable):
         self.tabla.setRowCount(0)
         for m in motos:
             r = self.tabla.rowCount()
@@ -148,11 +190,10 @@ class VentanaProduccion(QMainWindow, Sujeto):
 
     def _fila_seleccionada(self):
         chasis = self._moto_seleccionada_chasis()
-        if not chasis:
+        if not chasis or not self._buscar:
             return
 
-        # buscar sin filtrar para traer la moto, aunque no esté en el filtro actual
-        motos = self.servicio.buscar(chasis)
+        motos = self._buscar(chasis)
         if not motos:
             return
 
@@ -169,57 +210,67 @@ class VentanaProduccion(QMainWindow, Sujeto):
             self.color_combo.setCurrentIndex(idx_color)
 
     def _refrescar(self):
+        if not self._listar_por_estado:
+            return
         estado = self.estado_combo.currentText().strip()
-        motos = self.servicio.listar_por_estado(estado)
+        motos = self._listar_por_estado(estado)
         self._llenar_tabla(motos)
         self._actualizar_contador()
 
     def _buscar_clicked(self):
+        if not self._buscar_por_estado:
+            return
         texto = self.buscar_input.text()
         estado = self.estado_combo.currentText().strip()
-        motos = self.servicio.buscar_por_estado(texto, estado)
+        motos = self._buscar_por_estado(texto, estado)
         self._llenar_tabla(motos)
 
     def _agregar_clicked(self):
-        res = self.servicio.declarar_moto(
+        if not self._declarar_moto:
+            return
+        res = self._declarar_moto(
             self.chasis_input.text(),
             self.motor_input.text(),
             self.modelo_combo.currentText(),
             self.color_combo.currentText(),
         )
 
-        if res.ok:
-            QMessageBox.information(self, "OK", res.message)
+        if getattr(res, "ok", False):
+            QMessageBox.information(self, "OK", getattr(res, "message", "Moto agregada."))
             self._refrescar()
             self.chasis_input.clear()
             self.motor_input.clear()
             self.chasis_input.setFocus()
             return
 
-        if res.errores:
-            QMessageBox.warning(self, "Error", res.message + "\n" + "\n".join(res.errores))
-        else:
-            QMessageBox.warning(self, "Error", res.message)
+        errores = getattr(res, "errores", None)
+        msg = getattr(res, "message", "Error.")
+        if errores:
+            msg = msg + "\n" + "\n".join(errores)
+        QMessageBox.warning(self, "Error", msg)
 
     def _modificar_clicked(self):
-        res = self.servicio.modificar_moto_por_chasis(
+        if not self._modificar_moto_por_chasis:
+            return
+        res = self._modificar_moto_por_chasis(
             self.chasis_input.text(),
             self.motor_input.text(),
             self.modelo_combo.currentText(),
             self.color_combo.currentText(),
         )
-        if res.ok:
-            QMessageBox.information(self, "OK", res.message)
+        if getattr(res, "ok", False):
+            QMessageBox.information(self, "OK", getattr(res, "message", "Moto modificada."))
             self._refrescar()
             return
 
-        if res.errores:
-            QMessageBox.warning(self, "Error", res.message + "\n" + "\n".join(res.errores))
-        else:
-            QMessageBox.warning(self, "Error", res.message)
+        errores = getattr(res, "errores", None)
+        msg = getattr(res, "message", "Error.")
+        if errores:
+            msg = msg + "\n" + "\n".join(errores)
+        QMessageBox.warning(self, "Error", msg)
 
     def _cerrar_dia_clicked(self):
-        cantidad = self.servicio.cantidad_del_dia(self._dia_actual)
+        cantidad = self._cantidad_del_dia(self._dia_actual) if self._cantidad_del_dia else 0
         QMessageBox.information(
             self,
             "Cierre de día",
@@ -227,7 +278,7 @@ class VentanaProduccion(QMainWindow, Sujeto):
         )
 
         self.notificar(Evento(
-            nombre="produccion_cierre_dia",
+            nombre=Eventos.PRODUCCION_CIERRE_DIA,
             data={"dia": self._dia_actual.isoformat(), "cantidad": cantidad}
         ))
 

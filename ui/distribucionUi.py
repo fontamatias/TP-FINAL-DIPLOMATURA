@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Callable
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -9,14 +10,15 @@ from PyQt6.QtWidgets import (
 )
 
 from patrones.observadores import Sujeto, Evento
-from servicios.distribucion import ServicioDistribucion
+from app.constantes import Eventos
 
 
 class DialogoHistorialVentas(QDialog):
-    def __init__(self, servicio: ServicioDistribucion, parent=None):
+    def __init__(self, listar_ventas_finalizadas, items_de_venta, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Historial de ventas (FINALIZADAS)")
-        self.servicio = servicio
+        self._listar_ventas_finalizadas = listar_ventas_finalizadas
+        self._items_de_venta = items_de_venta
 
         self.tree = QTreeWidget()
         self.tree.setColumnCount(4)
@@ -33,10 +35,10 @@ class DialogoHistorialVentas(QDialog):
 
     def _cargar(self):
         self.tree.clear()
-        ventas = self.servicio.listar_ventas_finalizadas()
+        ventas = self._listar_ventas_finalizadas() if self._listar_ventas_finalizadas else []
 
         for v in ventas:
-            items = self.servicio.items_de_venta(v.id)
+            items = self._items_de_venta(v.id) if self._items_de_venta else []
             it = QTreeWidgetItem([
                 str(v.numero_venta),
                 v.fecha_hora.strftime("%Y-%m-%d %H:%M:%S"),
@@ -56,10 +58,16 @@ class VentanaDistribucion(QMainWindow, Sujeto):
 
         self.setWindowTitle(f"Distribución - Usuario: {nombre_usuario}")
 
-        self.servicio = ServicioDistribucion()
+        # 4b) callbacks inyectados
+        self._listar_stock_listo: Callable[[], list] | None = None
+        self._listar_ventas_pendientes: Callable[[], list] | None = None
+        self._listar_ventas_finalizadas: Callable[[], list] | None = None
+        self._items_de_venta: Callable[[int], list] | None = None
+        self._ventas_finalizadas_del_dia: Callable[[date], int] | None = None
+        self._motos_vendidas_del_dia: Callable[[date], int] | None = None
+
         self._dia_actual = date.today()
 
-        # ---- Stock listo ----
         self.tree_stock = QTreeWidget()
         self.tree_stock.setColumnCount(5)
         self.tree_stock.setHeaderLabels(["Chasis", "Motor", "Modelo", "Color", "Fecha/Hora"])
@@ -68,14 +76,12 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.btn_refrescar = QPushButton("Refrescar")
         self.btn_refrescar.clicked.connect(self._refrescar)
 
-        # NUEVO: historial + cierre de día
         self.btn_historial = QPushButton("Historial")
         self.btn_historial.clicked.connect(self._historial_clicked)
 
         self.btn_cerrar_dia = QPushButton("Cerrar día")
         self.btn_cerrar_dia.clicked.connect(self._cerrar_dia_clicked)
 
-        # ---- Pedido actual ----
         self.lbl_pedido_actual = QLabel("Pedido actual: (ninguno)")
         self.lbl_pedido_actual.setStyleSheet("font-weight:bold;")
 
@@ -90,7 +96,6 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.tree_items_pedido.setColumnCount(2)
         self.tree_items_pedido.setHeaderLabels(["Chasis", "Motor"])
 
-        # ---- Pedidos pendientes ----
         self.tree_pedidos = QTreeWidget()
         self.tree_pedidos.setColumnCount(2)
         self.tree_pedidos.setHeaderLabels(["ID", "Nro venta (pendiente)"])
@@ -104,11 +109,9 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.btn_finalizar_pedido = QPushButton("Finalizar pedido seleccionado")
         self.btn_finalizar_pedido.clicked.connect(self._finalizar_pedido_clicked)
 
-        # estado local
         self._venta_actual_id: int | None = None
         self._venta_actual_numero: str | None = None
 
-        # layout
         central = QWidget()
         root = QVBoxLayout(central)
 
@@ -145,11 +148,24 @@ class VentanaDistribucion(QMainWindow, Sujeto):
 
         self.setCentralWidget(central)
 
+    def set_servicio(
+        self,
+        *,
+        listar_stock_listo,
+        listar_ventas_pendientes,
+        listar_ventas_finalizadas,
+        items_de_venta,
+        ventas_finalizadas_del_dia,
+        motos_vendidas_del_dia,
+    ) -> None:
+        self._listar_stock_listo = listar_stock_listo
+        self._listar_ventas_pendientes = listar_ventas_pendientes
+        self._listar_ventas_finalizadas = listar_ventas_finalizadas
+        self._items_de_venta = items_de_venta
+        self._ventas_finalizadas_del_dia = ventas_finalizadas_del_dia
+        self._motos_vendidas_del_dia = motos_vendidas_del_dia
         self._refrescar()
 
-    # --------------------
-    # helpers selección
-    # --------------------
     def _moto_stock_seleccionada_chasis(self) -> str | None:
         item = self.tree_stock.currentItem()
         if not item:
@@ -165,12 +181,10 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         except ValueError:
             return None
 
-    # --------------------
-    # refrescos
-    # --------------------
     def _refrescar_stock(self):
         self.tree_stock.clear()
-        for m in self.servicio.listar_stock_listo():
+        motos = self._listar_stock_listo() if self._listar_stock_listo else []
+        for m in motos:
             it = QTreeWidgetItem([
                 m.numero_chasis,
                 m.numero_motor,
@@ -185,7 +199,8 @@ class VentanaDistribucion(QMainWindow, Sujeto):
 
     def _refrescar_pedidos(self):
         self.tree_pedidos.clear()
-        for v in self.servicio.listar_ventas_pendientes():
+        ventas = self._listar_ventas_pendientes() if self._listar_ventas_pendientes else []
+        for v in ventas:
             it = QTreeWidgetItem([str(v.id), str(v.numero_venta)])
             self.tree_pedidos.addTopLevelItem(it)
         self.tree_pedidos.resizeColumnToContents(0)
@@ -195,7 +210,8 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.tree_items_pedido.clear()
         if self._venta_actual_id is None:
             return
-        for it in self.servicio.items_de_venta(self._venta_actual_id):
+        items = self._items_de_venta(self._venta_actual_id) if self._items_de_venta else []
+        for it in items:
             self.tree_items_pedido.addTopLevelItem(QTreeWidgetItem([it.numero_chasis, it.numero_motor]))
         self.tree_items_pedido.resizeColumnToContents(0)
         self.tree_items_pedido.resizeColumnToContents(1)
@@ -214,11 +230,8 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         else:
             self.lbl_pedido_actual.setText(f"Pedido actual: {self._venta_actual_numero} (id={self._venta_actual_id})")
 
-    # --------------------
-    # eventos UI
-    # --------------------
     def _crear_pedido_clicked(self):
-        self.notificar(Evento(nombre="distribucion_crear_pedido", data={}))
+        self.notificar(Evento(nombre=Eventos.DISTRIBUCION_CREAR_PEDIDO, data={}))
 
     def _agregar_a_pedido_clicked(self):
         if self._venta_actual_id is None:
@@ -230,7 +243,7 @@ class VentanaDistribucion(QMainWindow, Sujeto):
             return
 
         self.notificar(Evento(
-            nombre="distribucion_agregar_a_pedido",
+            nombre=Eventos.DISTRIBUCION_AGREGAR_A_PEDIDO,
             data={"venta_id": self._venta_actual_id, "chasis": chasis}
         ))
 
@@ -239,7 +252,8 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.tree_pedido_detalle.clear()
         if venta_id is None:
             return
-        for it in self.servicio.items_de_venta(venta_id):
+        items = self._items_de_venta(venta_id) if self._items_de_venta else []
+        for it in items:
             self.tree_pedido_detalle.addTopLevelItem(QTreeWidgetItem([it.numero_chasis, it.numero_motor]))
         self.tree_pedido_detalle.resizeColumnToContents(0)
         self.tree_pedido_detalle.resizeColumnToContents(1)
@@ -251,17 +265,21 @@ class VentanaDistribucion(QMainWindow, Sujeto):
             return
 
         self.notificar(Evento(
-            nombre="distribucion_finalizar_pedido",
+            nombre=Eventos.DISTRIBUCION_FINALIZAR_PEDIDO,
             data={"venta_id": venta_id}
         ))
 
     def _historial_clicked(self):
-        dlg = DialogoHistorialVentas(self.servicio, parent=self)
+        dlg = DialogoHistorialVentas(
+            self._listar_ventas_finalizadas,
+            self._items_de_venta,
+            parent=self
+        )
         dlg.exec()
 
     def _cerrar_dia_clicked(self):
-        ventas = self.servicio.ventas_finalizadas_del_dia(self._dia_actual)
-        motos = self.servicio.motos_vendidas_del_dia(self._dia_actual)
+        ventas = self._ventas_finalizadas_del_dia(self._dia_actual) if self._ventas_finalizadas_del_dia else 0
+        motos = self._motos_vendidas_del_dia(self._dia_actual) if self._motos_vendidas_del_dia else 0
 
         QMessageBox.information(
             self,
@@ -272,15 +290,12 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         )
 
         self.notificar(Evento(
-            nombre="distribucion_cierre_dia",
+            nombre=Eventos.DISTRIBUCION_CIERRE_DIA,
             data={"dia": self._dia_actual.isoformat(), "ventas": ventas, "motos": motos}
         ))
 
         self.close()
 
-    # --------------------
-    # helpers para controlador
-    # --------------------
     def set_pedido_actual(self, venta_id: int | None, numero_venta: str | None):
         self._venta_actual_id = venta_id
         self._venta_actual_numero = numero_venta

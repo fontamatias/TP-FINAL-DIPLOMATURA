@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel
 )
 from patrones.observadores import Sujeto, Evento
+from app.constantes import Eventos
 
 
 class PresentacionLogin(QDialog, Sujeto):
@@ -91,7 +92,7 @@ class PresentacionLogin(QDialog, Sujeto):
     # eventos internos -> notificar
     def _login_clicked(self):
         self.notificar(Evento(
-            nombre="login_submit",
+            nombre=Eventos.LOGIN_SUBMIT,
             data={
                 "usuario": self.nombre_usuario_input.text(),
                 "contraseña": self.contraseña_input.text(),
@@ -99,10 +100,10 @@ class PresentacionLogin(QDialog, Sujeto):
         ))
 
     def _registro_clicked(self):
-        self.notificar(Evento(nombre="registro_requested"))
+        self.notificar(Evento(nombre=Eventos.REGISTRO_REQUESTED))
 
     def _contrasenia_clicked(self):
-        self.notificar(Evento(nombre="cambiar_contrasena_requested"))
+        self.notificar(Evento(nombre=Eventos.CAMBIAR_CONTRASENA_REQUESTED))
 
     def _eliminar_usuario_clicked(self):
-        self.notificar(Evento(nombre="eliminar_usuario_requested"))
+        self.notificar(Evento(nombre=Eventos.ELIMINAR_USUARIO_REQUESTED))

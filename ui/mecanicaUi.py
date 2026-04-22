@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Callable
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -8,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 
 from patrones.observadores import Sujeto, Evento
-from servicios.mecanica import ServicioMecanica
+from app.constantes import Eventos
 
 
 class VentanaMecanica(QMainWindow, Sujeto):
@@ -18,7 +19,9 @@ class VentanaMecanica(QMainWindow, Sujeto):
 
         self.setWindowTitle(f"Mecánica - Usuario: {nombre_usuario}")
 
-        self.servicio = ServicioMecanica()
+        self._listar_en_mecanica: Callable[[], list] | None = None
+        self._cantidad_reparadas_del_dia: Callable[[date], int] | None = None
+
         self._dia_actual = date.today()
 
         self.tree = QTreeWidget()
@@ -58,6 +61,9 @@ class VentanaMecanica(QMainWindow, Sujeto):
 
         self.setCentralWidget(central)
 
+    def set_servicio(self, *, listar_en_mecanica, cantidad_reparadas_del_dia) -> None:
+        self._listar_en_mecanica = listar_en_mecanica
+        self._cantidad_reparadas_del_dia = cantidad_reparadas_del_dia
         self._refrescar()
 
     def _moto_seleccionada_chasis(self) -> str | None:
@@ -67,12 +73,18 @@ class VentanaMecanica(QMainWindow, Sujeto):
         return item.text(0)
 
     def _actualizar_resumen(self):
-        cant = self.servicio.cantidad_reparadas_del_dia(self._dia_actual)
+        if not self._cantidad_reparadas_del_dia:
+            self.lbl_resumen.setText("")
+            return
+        cant = self._cantidad_reparadas_del_dia(self._dia_actual)
         self.lbl_resumen.setText(f"Reparadas hoy ({self._dia_actual.isoformat()}): {cant}")
 
     def _refrescar(self):
+        if not self._listar_en_mecanica:
+            return
+
         self.tree.clear()
-        motos = self.servicio.listar_en_mecanica()
+        motos = self._listar_en_mecanica()
 
         for m in motos:
             it = QTreeWidgetItem([
@@ -97,12 +109,12 @@ class VentanaMecanica(QMainWindow, Sujeto):
             return
 
         self.notificar(Evento(
-            nombre="mecanica_dar_alta",
+            nombre=Eventos.MECANICA_DAR_ALTA,
             data={"chasis": chasis}
         ))
 
     def _cerrar_dia_clicked(self):
-        cant = self.servicio.cantidad_reparadas_del_dia(self._dia_actual)
+        cant = self._cantidad_reparadas_del_dia(self._dia_actual) if self._cantidad_reparadas_del_dia else 0
 
         QMessageBox.information(
             self,
@@ -111,7 +123,7 @@ class VentanaMecanica(QMainWindow, Sujeto):
         )
 
         self.notificar(Evento(
-            nombre="mecanica_cierre_dia",
+            nombre=Eventos.MECANICA_CIERRE_DIA,
             data={"dia": self._dia_actual.isoformat(), "cantidad": cant}
         ))
 
