@@ -12,12 +12,15 @@ from PyQt6.QtWidgets import QMessageBox
 from patrones.observadores import Observador, Evento
 
 from servicios.autentificacion import ServicioAutentificacion
+from servicios.inspeccion_final import ServicioInspeccionFinal  # NUEVO
+
 from ui.loginUi import PresentacionLogin
 from ui.registroUi import VistaRegistro
 from ui.Bienvenida import BienvenidoApp
 from ui.cambiarCC import VistaCambiarContraseña
 from ui.eliminarUsuario import VistaEliminarUsuario
 from ui.produccionUi import VentanaProduccion
+from ui.inspeccionFinalUi import VentanaInspeccionFinal  # NUEVO
 
 from modelo.empleados import Usuario
 
@@ -25,6 +28,7 @@ from modelo.empleados import Usuario
 class ControladorDeApp(Observador):
     def __init__(self):
         self.autentificacion = ServicioAutentificacion()
+        self.inspeccion_srv = ServicioInspeccionFinal()  # NUEVO
 
         self.login: PresentacionLogin | None = None
         self.ventana_bienvenido = None
@@ -32,6 +36,7 @@ class ControladorDeApp(Observador):
         self._cambiar: VistaCambiarContraseña | None = None
         self._eliminar: VistaEliminarUsuario | None = None
         self._produccion: VentanaProduccion | None = None
+        self._inspeccion: VentanaInspeccionFinal | None = None  # NUEVO
 
     def arranque(self) -> int:
         self.login = PresentacionLogin()
@@ -77,6 +82,15 @@ class ControladorDeApp(Observador):
         # eventos eliminar usuario
         if nombre == "eliminar_usuario_submit":
             self._manejar_eliminar_usuario(subject, data)
+            return
+
+        # eventos inspeccion final (NUEVO)
+        if nombre == "inspeccion_marcar_ok":
+            self._manejar_inspeccion_ok(subject, data)
+            return
+
+        if nombre == "inspeccion_marcar_no_ok":
+            self._manejar_inspeccion_no_ok(subject, data)
             return
 
         # eventos produccion
@@ -138,6 +152,16 @@ class ControladorDeApp(Observador):
             login_dialogo.accept()
             return
 
+        # NUEVO: abrir Inspección final
+        if sector == "Inspeccion final":
+            insp = VentanaInspeccionFinal(nombre_usuario)
+            insp.conectar(self)
+            self._inspeccion = insp
+
+            insp.show()
+            login_dialogo.accept()
+            return
+
         bien = BienvenidoApp(nombre_usuario, sector)
         self.ventana_bienvenido = bien
         bien.show()
@@ -193,3 +217,33 @@ class ControladorDeApp(Observador):
             return
 
         QMessageBox.warning(vista, "Error", res.message)
+
+    # ============================
+    # NUEVO: handlers Inspección Final
+    # ============================
+    def _manejar_inspeccion_ok(self, vista: VentanaInspeccionFinal, data: dict) -> None:
+        chasis = data.get("chasis", "")
+        res = self.inspeccion_srv.marcar_ok(chasis)
+
+        if res.ok:
+            QMessageBox.information(vista, "OK", res.message)
+            vista.refrescar()
+            return
+
+        QMessageBox.warning(vista, "Error", res.message)
+
+    def _manejar_inspeccion_no_ok(self, vista: VentanaInspeccionFinal, data: dict) -> None:
+        chasis = data.get("chasis", "")
+        motivo = data.get("motivo", "")
+        res = self.inspeccion_srv.marcar_no_ok(chasis, motivo)
+
+        if res.ok:
+            QMessageBox.information(vista, "OK", res.message)
+            vista.refrescar()
+            return
+
+        # si el servicio devuelve errores
+        if getattr(res, "errores", None):
+            QMessageBox.warning(vista, "Error", res.message + "\n" + "\n".join(res.errores or []))
+        else:
+            QMessageBox.warning(vista, "Error", res.message)
