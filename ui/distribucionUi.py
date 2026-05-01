@@ -41,7 +41,7 @@ class DialogoHistorialVentas(QDialog):
             items = self._items_de_venta(v.id) if self._items_de_venta else []
             it = QTreeWidgetItem([
                 str(v.numero_venta),
-                v.fecha_hora.strftime("%Y-%m-%d %H:%M:%S"),
+                v.fecha_hora.strftime("%Y-%m-%d %H:%M:%S") if v.fecha_hora else "",
                 str(v.estado),
                 str(len(items)),
             ])
@@ -82,16 +82,23 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.btn_cerrar_dia = QPushButton("Cerrar día")
         self.btn_cerrar_dia.clicked.connect(self._cerrar_dia_clicked)
 
-        self.lbl_pedido_actual = QLabel("Pedido actual: (ninguno)")
+        # Pedido actual (solo informativo; ya no se crea ni se arma desde Distribución)
+        self.lbl_pedido_actual = QLabel("Pedido actual: (no aplica)")
         self.lbl_pedido_actual.setStyleSheet("font-weight:bold;")
 
-        self.btn_crear_pedido = QPushButton("Crear pedido")
-        self.btn_crear_pedido.clicked.connect(self._crear_pedido_clicked)
+        # CAMBIO: Distribución ya no crea pedidos
+        self.btn_crear_pedido = QPushButton("Crear pedido (solo cliente)")
+        self.btn_crear_pedido.setEnabled(False)
+        self.btn_crear_pedido.setToolTip("Los pedidos ahora se crean desde la app Cliente.")
+        # self.btn_crear_pedido.clicked.connect(self._crear_pedido_clicked)  # ya no se usa
 
-        self.btn_agregar_a_pedido = QPushButton("Agregar moto seleccionada al pedido")
-        self.btn_agregar_a_pedido.clicked.connect(self._agregar_a_pedido_clicked)
+        # CAMBIO: Distribución ya no agrega motos manualmente a un pedido
+        self.btn_agregar_a_pedido = QPushButton("Agregar moto al pedido (solo cliente)")
         self.btn_agregar_a_pedido.setEnabled(False)
+        self.btn_agregar_a_pedido.setToolTip("Las motos se agregan al pedido desde la app Cliente.")
+        # self.btn_agregar_a_pedido.clicked.connect(self._agregar_a_pedido_clicked)  # ya no se usa
 
+        # dejamos este tree por compatibilidad visual (puede mostrar detalle del pedido seleccionado)
         self.tree_items_pedido = QTreeWidget()
         self.tree_items_pedido.setColumnCount(2)
         self.tree_items_pedido.setHeaderLabels(["Chasis", "Motor"])
@@ -109,6 +116,7 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.btn_finalizar_pedido = QPushButton("Finalizar pedido seleccionado")
         self.btn_finalizar_pedido.clicked.connect(self._finalizar_pedido_clicked)
 
+        # CAMBIO: ya no existe “pedido actual” en Distribución
         self._venta_actual_id: int | None = None
         self._venta_actual_numero: str | None = None
 
@@ -132,7 +140,7 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         acciones_pedido.addWidget(self.btn_agregar_a_pedido)
         root.addLayout(acciones_pedido)
 
-        root.addWidget(QLabel("Motos dentro del pedido actual:"))
+        root.addWidget(QLabel("Motos dentro del pedido actual: (no aplica en Distribución)"))
         root.addWidget(self.tree_items_pedido)
 
         root.addWidget(QLabel("Pedidos pendientes para salir:"))
@@ -166,12 +174,6 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self._motos_vendidas_del_dia = motos_vendidas_del_dia
         self._refrescar()
 
-    def _moto_stock_seleccionada_chasis(self) -> str | None:
-        item = self.tree_stock.currentItem()
-        if not item:
-            return None
-        return item.text(0)
-
     def _pedido_seleccionado_id(self) -> int | None:
         item = self.tree_pedidos.currentItem()
         if not item:
@@ -185,12 +187,13 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.tree_stock.clear()
         motos = self._listar_stock_listo() if self._listar_stock_listo else []
         for m in motos:
+            fecha_txt = m.fecha_hora.strftime("%Y-%m-%d %H:%M:%S") if getattr(m, "fecha_hora", None) else ""
             it = QTreeWidgetItem([
-                m.numero_chasis,
-                m.numero_motor,
+                str(m.numero_chasis),
+                str(m.numero_motor),
                 str(m.modelo),
                 str(m.color),
-                m.fecha_hora.strftime("%Y-%m-%d %H:%M:%S"),
+                fecha_txt,
             ])
             self.tree_stock.addTopLevelItem(it)
 
@@ -206,55 +209,27 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         self.tree_pedidos.resizeColumnToContents(0)
         self.tree_pedidos.resizeColumnToContents(1)
 
+    # CAMBIO: “pedido actual” ya no se arma en Distribución
     def _refrescar_items_pedido_actual(self):
         self.tree_items_pedido.clear()
-        if self._venta_actual_id is None:
-            return
-        items = self._items_de_venta(self._venta_actual_id) if self._items_de_venta else []
-        for it in items:
-            self.tree_items_pedido.addTopLevelItem(QTreeWidgetItem([it.numero_chasis, it.numero_motor]))
-        self.tree_items_pedido.resizeColumnToContents(0)
-        self.tree_items_pedido.resizeColumnToContents(1)
 
     def _refrescar(self):
         self._refrescar_stock()
         self._refrescar_pedidos()
         self._refrescar_items_pedido_actual()
-        self._actualizar_estado_botones()
 
-    def _actualizar_estado_botones(self):
-        self.btn_agregar_a_pedido.setEnabled(self._venta_actual_id is not None)
-
-        if self._venta_actual_id is None or self._venta_actual_numero is None:
-            self.lbl_pedido_actual.setText("Pedido actual: (ninguno)")
-        else:
-            self.lbl_pedido_actual.setText(f"Pedido actual: {self._venta_actual_numero} (id={self._venta_actual_id})")
-
-    def _crear_pedido_clicked(self):
-        self.notificar(Evento(nombre=Eventos.DISTRIBUCION_CREAR_PEDIDO, data={}))
-
-    def _agregar_a_pedido_clicked(self):
-        if self._venta_actual_id is None:
-            QMessageBox.warning(self, "Error", "Primero creá un pedido.")
-            return
-        chasis = self._moto_stock_seleccionada_chasis()
-        if not chasis:
-            QMessageBox.warning(self, "Error", "Seleccioná una moto del stock.")
-            return
-
-        self.notificar(Evento(
-            nombre=Eventos.DISTRIBUCION_AGREGAR_A_PEDIDO,
-            data={"venta_id": self._venta_actual_id, "chasis": chasis}
-        ))
+        # CAMBIO: botones ya quedan siempre deshabilitados
+        self.lbl_pedido_actual.setText("Pedido actual: (no aplica)")
 
     def _pedido_seleccionado(self):
         venta_id = self._pedido_seleccionado_id()
         self.tree_pedido_detalle.clear()
         if venta_id is None:
             return
+
         items = self._items_de_venta(venta_id) if self._items_de_venta else []
         for it in items:
-            self.tree_pedido_detalle.addTopLevelItem(QTreeWidgetItem([it.numero_chasis, it.numero_motor]))
+            self.tree_pedido_detalle.addTopLevelItem(QTreeWidgetItem([str(it.numero_chasis), str(it.numero_motor)]))
         self.tree_pedido_detalle.resizeColumnToContents(0)
         self.tree_pedido_detalle.resizeColumnToContents(1)
 
@@ -295,12 +270,6 @@ class VentanaDistribucion(QMainWindow, Sujeto):
         ))
 
         self.close()
-
-    def set_pedido_actual(self, venta_id: int | None, numero_venta: str | None):
-        self._venta_actual_id = venta_id
-        self._venta_actual_numero = numero_venta
-        self._actualizar_estado_botones()
-        self._refrescar_items_pedido_actual()
 
     def refrescar(self):
         self._refrescar()

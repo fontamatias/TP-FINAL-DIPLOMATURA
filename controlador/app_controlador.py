@@ -18,8 +18,10 @@ from app.constantes import Eventos, Sectores
 from servicios.autentificacion import ServicioAutentificacion
 from servicios.inspeccion_final import ServicioInspeccionFinal
 from servicios.mecanica import ServicioMecanica
-from servicios.distribucion import ServicioDistribucion
 from servicios.produccion import ServicioProduccion
+
+# distribución por socket (proxy al server)
+from servicios.distribucion_socket import ServicioDistribucionSocket
 
 from ui.loginUi import PresentacionLogin
 from ui.registroUi import VistaRegistro
@@ -41,7 +43,9 @@ class ControladorDeApp(Observador):
         self.produccion_srv = ServicioProduccion()
         self.inspeccion_srv = ServicioInspeccionFinal()
         self.mecanica_srv = ServicioMecanica()
-        self.distribucion_srv = ServicioDistribucion()
+
+        # Distribución contra server socket
+        self.distribucion_srv = ServicioDistribucionSocket()
 
         # vistas activas
         self.login: PresentacionLogin | None = None
@@ -54,7 +58,7 @@ class ControladorDeApp(Observador):
         self._mecanica: VentanaMecanica | None = None
         self._distribucion: VentanaDistribucion | None = None
 
-        # 4a) dispatcher
+        # dispatcher
         self._handlers: dict[str, Callable[[Any, dict], None]] = {
             # login/auth
             Eventos.LOGIN_SUBMIT: self._h_login_submit,
@@ -64,18 +68,20 @@ class ControladorDeApp(Observador):
             Eventos.REGISTRO_SUBMIT: self._h_registro_submit,
             Eventos.CAMBIAR_CONTRASENA_SUBMIT: self._h_cambiar_contrasena_submit,
             Eventos.ELIMINAR_USUARIO_SUBMIT: self._h_eliminar_usuario_submit,
+
             # inspección final
             Eventos.INSPECCION_MARCAR_OK: self._h_inspeccion_ok,
             Eventos.INSPECCION_MARCAR_NO_OK: self._h_inspeccion_no_ok,
             Eventos.INSPECCION_CIERRE_DIA: self._h_inspeccion_cierre_dia,
+
             # mecánica
             Eventos.MECANICA_DAR_ALTA: self._h_mecanica_dar_alta,
             Eventos.MECANICA_CIERRE_DIA: self._h_mecanica_cierre_dia,
-            # distribución
-            Eventos.DISTRIBUCION_CREAR_PEDIDO: self._h_distribucion_crear_pedido,
-            Eventos.DISTRIBUCION_AGREGAR_A_PEDIDO: self._h_distribucion_agregar_a_pedido,
+
+            # distribución (CAMBIO: ya NO crea pedidos ni agrega motos)
             Eventos.DISTRIBUCION_FINALIZAR_PEDIDO: self._h_distribucion_finalizar_pedido,
             Eventos.DISTRIBUCION_CIERRE_DIA: self._h_distribucion_cierre_dia,
+
             # producción
             Eventos.PRODUCCION_CIERRE_DIA: self._h_produccion_cierre_dia,
         }
@@ -90,7 +96,7 @@ class ControladorDeApp(Observador):
         return 0
 
     # ============================
-    # 4d) helpers de mensajes
+    # helpers de mensajes
     # ============================
     def _msg_ok(self, parent, titulo: str, mensaje: str) -> None:
         QMessageBox.information(parent, titulo, mensaje)
@@ -169,7 +175,7 @@ class ControladorDeApp(Observador):
         usuario = Usuario.get_or_none(Usuario.nombre_usuario == (nombre_usuario or "").strip())
         sector = usuario.sector if usuario else ""
 
-        # 4b) inyección: las vistas NO crean servicios; el controlador les setea callbacks
+        # inyección: vistas NO crean servicios
         if sector == Sectores.LINEA_PRODUCCION:
             prod = VentanaProduccion(nombre_usuario)
             prod.conectar(self)
@@ -299,9 +305,6 @@ class ControladorDeApp(Observador):
         self._mostrar_resultado(vista, res, refresh=vista.refrescar)
 
     def _h_inspeccion_cierre_dia(self, vista: VentanaInspeccionFinal, data: dict) -> None:
-        # 4c) cierre de día “real”: acá podrías persistir auditoría si querés.
-        # Por ahora, dejamos consistente: se cierra la ventana (ya se cerró en UI)
-        # y liberamos referencia.
         self._inspeccion = None
 
     # ============================
@@ -318,25 +321,6 @@ class ControladorDeApp(Observador):
     # ============================
     # handlers Distribución
     # ============================
-    def _h_distribucion_crear_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
-        venta = self.distribucion_srv.crear_venta_pendiente()
-        self._msg_ok(vista, "OK", f"Pedido creado. Nro de venta: {venta.numero_venta}")
-        vista.set_pedido_actual(venta.id, venta.numero_venta)
-        vista.refrescar()
-
-    def _h_distribucion_agregar_a_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
-        venta_id = data.get("venta_id")
-        chasis = data.get("chasis", "")
-
-        try:
-            venta_id_int = int(venta_id)
-        except Exception:
-            self._msg_warn(vista, "Error", "Venta inválida.")
-            return
-
-        res = self.distribucion_srv.agregar_moto_a_venta(venta_id_int, chasis)
-        self._mostrar_resultado(vista, res, refresh=vista.refrescar)
-
     def _h_distribucion_finalizar_pedido(self, vista: VentanaDistribucion, data: dict) -> None:
         venta_id = data.get("venta_id")
         try:
@@ -348,7 +332,6 @@ class ControladorDeApp(Observador):
         res = self.distribucion_srv.finalizar_venta(venta_id_int)
         if getattr(res, "ok", False):
             self._msg_ok(vista, "OK", getattr(res, "message", "Pedido finalizado."))
-            vista.set_pedido_actual(None, None)
             vista.refrescar()
             return
 
